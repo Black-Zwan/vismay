@@ -8,7 +8,8 @@
     "start-web": "bunx rork start -p lro5ll5zott9s9cxt6l83 --web",
     "start-web-dev": "DEBUG=expo* bunx rork start -p lro5ll5zott9s9cxt6l83 --web",
     "lint": "expo lint",
-    "dev": "expo start"
+    "dev": "expo start",
+    "test": "vitest run"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -50,7 +51,8 @@
     "@types/react": "~19.1.10",
     "eslint": "^9.31.0",
     "eslint-config-expo": "~10.0.0",
-    "typescript": "~5.9.2"
+    "typescript": "~5.9.2",
+    "vitest": "^4.1.10"
   },
   "overrides": {
     "axios": "1.13.2"

@@ -253,8 +253,7 @@ export const useStore = create<StoreState>((set, get) => ({
     const { journey: updated, newlyBanked } = creditArrivals(
       state.journey,
       now,
-      state.clockGuard.lastSeenTimestamp,
-      state.clockGuard.monotonicCounter,
+      state.devFastLegs,
     );
 
     // Update steps walked from current leg progress.
@@ -379,6 +378,7 @@ export const useStore = create<StoreState>((set, get) => ({
     // Advance to the next waymark.
     journey = {
       ...journey,
+      dayIndex: journey.dayIndex + 1,
       waymarkIndex: nextWaymarkIndex(journey.waymarkIndex),
     };
 
