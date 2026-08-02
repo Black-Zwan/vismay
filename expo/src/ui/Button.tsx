@@ -26,10 +26,13 @@ export function Button({ label, variant = 'primary', disabled, style, ...rest }:
       accessibilityRole="button"
       accessibilityState={{ disabled: !!disabled }}
       disabled={disabled}
-      style={({ pressed }) => [
+      style={(pressableState) => [
         styles.base,
-        { backgroundColor: bg, opacity: disabled ? 0.4 : pressed ? 0.7 : 1 },
-        style,
+        {
+          backgroundColor: bg,
+          opacity: disabled ? 0.4 : pressableState.pressed ? 0.7 : 1,
+        },
+        typeof style === 'function' ? style(pressableState) : style,
       ]}
       {...rest}
     >

@@ -11,6 +11,9 @@ export interface CardEntry {
   name: string;
   numeral: string;
   accentHex: string;
+  epigraph: string;
+  /** TODO(owner): aspect this card contributes to in the Mirror. */
+  aspect?: AspectId;
   /** Map of lensId -> reading text. */
   readings: Record<string, string>;
 }
@@ -19,8 +22,10 @@ export interface CardEntry {
 export interface LensEntry {
   id: string;
   label: string;
-  primaryAspect: AspectId;
-  secondaryAspect: AspectId;
+  glyph: string;
+  /** TODO(owner): Mirror mapping is not authored yet. */
+  primaryAspect?: AspectId;
+  secondaryAspect?: AspectId;
 }
 
 /** A landmark along the road. */

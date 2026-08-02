@@ -44,6 +44,7 @@ export function scorePull(
   _card: CardEntry,
 ): Record<AspectId, number> {
   const after = { ...before };
+  if (!lens.primaryAspect || !lens.secondaryAspect) return after;
   after[lens.primaryAspect] = clampScore(after[lens.primaryAspect] + PRIMARY_SHIFT);
   after[lens.secondaryAspect] = clampScore(after[lens.secondaryAspect] + SECONDARY_SHIFT);
   return after;

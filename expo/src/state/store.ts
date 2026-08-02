@@ -295,9 +295,7 @@ export const useStore = create<StoreState>((set, get) => ({
     if (state.phase !== 'question') return;
     const lens = getLens(lensId);
     if (!lens) return;
-    // Deterministically pick a card for this pull based on day + waymark.
-    const seed = state.journey.dayIndex * 100 + state.journey.waymarkIndex + lensId.length;
-    const card = pickCardForPull(seed);
+    const card = pickCardForPull();
     const wm = waymarkAt(state.journey.waymarkIndex);
     const openerText = `${wm.name} — ${lens.label}`;
     const answerText = card.readings[lensId] ?? 'Placeholder reading.';
