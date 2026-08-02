@@ -9,11 +9,13 @@ import {
   Platform,
   StyleSheet,
   View,
+  type ViewStyle,
 } from 'react-native';
+
+import { CHARACTER_WALK_FPS } from './motion';
 
 const CELL = { width: 128, height: 176 } as const;
 const ANCHOR_Y = 172;
-const WALK_FPS = 10;
 const STAGE_SCALE = 1.65;
 const ACCENT_FADE_MS = 1_400;
 const USE_NATIVE_DRIVER = Platform.OS !== 'web';
@@ -50,6 +52,13 @@ type CharacterSpriteProps = {
   characterId: string;
   accentHex: string;
   walking: boolean;
+  scale?: number;
+};
+
+type CharacterPreviewProps = {
+  characterId: string;
+  accentHex: string;
+  fallback: React.ReactNode;
 };
 
 type AccentTransition = {
@@ -87,12 +96,24 @@ function AccentLayers({
   sheet,
   ramp,
   offset,
+  scale,
+  frameCount,
 }: {
   sheet: Sheet;
   ramp: [string, string, string];
   offset: Animated.Value;
+  scale: number;
+  frameCount: number;
 }) {
-  const imageStyle = [styles.sheet, crispImageStyle, { transform: [{ translateX: offset }] }];
+  const imageStyle = [
+    styles.sheet,
+    crispImageStyle,
+    {
+      width: CELL.width * frameCount * scale,
+      height: CELL.height * scale,
+      transform: [{ translateX: offset }],
+    },
+  ];
 
   return (
     <>
@@ -103,7 +124,12 @@ function AccentLayers({
   );
 }
 
-export function CharacterSprite({ characterId, accentHex, walking }: CharacterSpriteProps) {
+export function CharacterSprite({
+  characterId,
+  accentHex,
+  walking,
+  scale = STAGE_SCALE,
+}: CharacterSpriteProps) {
   const sheet = SHEETS_BY_CHARACTER[characterId];
   const frameOffset = useRef(new Animated.Value(0)).current;
   const bob = useRef(new Animated.Value(0)).current;
@@ -140,11 +166,11 @@ export function CharacterSprite({ characterId, accentHex, walking }: CharacterSp
     let frame = 0;
     const timer = setInterval(() => {
       frame = (frame + 1) % frameCount;
-      frameOffset.setValue(-frame * CELL.width * STAGE_SCALE);
-    }, 1_000 / WALK_FPS);
+      frameOffset.setValue(-frame * CELL.width * scale);
+    }, 1_000 / CHARACTER_WALK_FPS);
 
     return () => clearInterval(timer);
-  }, [frameOffset, sheet, walking]);
+  }, [frameOffset, scale, sheet, walking]);
 
   useEffect(() => {
     const distance = walking ? -2 : -1;
@@ -172,29 +198,80 @@ export function CharacterSprite({ characterId, accentHex, walking }: CharacterSp
   if (!sheet) return null;
 
   const fromOpacity = fade.interpolate({ inputRange: [0, 1], outputRange: [1, 0] });
+  const frameCount = inferFrameCount(sheet.base);
+  const rootStyle: ViewStyle = {
+    width: CELL.width * scale,
+    height: ANCHOR_Y * scale,
+  };
+  const sheetStyle = {
+    width: CELL.width * frameCount * scale,
+    height: CELL.height * scale,
+  };
 
   return (
-    <Animated.View style={[styles.root, { transform: [{ translateY: bob }] }]}>
-      <View style={styles.shadow} />
+    <Animated.View style={[styles.root, rootStyle, { transform: [{ translateY: bob }] }]}>
+      <View
+        style={[
+          styles.shadow,
+          {
+            left: 37 * scale,
+            width: 54 * scale,
+            height: 10 * scale,
+            borderRadius: 27 * scale,
+          },
+        ]}
+      />
       <Animated.Image
         source={sheet.base}
         resizeMode="stretch"
-        style={[styles.sheet, crispImageStyle, { transform: [{ translateX: frameOffset }] }]}
+        style={[
+          styles.sheet,
+          crispImageStyle,
+          sheetStyle,
+          { transform: [{ translateX: frameOffset }] },
+        ]}
       />
       <Animated.View style={[styles.layer, { opacity: fromOpacity }]}>
-        <AccentLayers sheet={sheet} ramp={transition.from} offset={frameOffset} />
+        <AccentLayers
+          sheet={sheet}
+          ramp={transition.from}
+          offset={frameOffset}
+          scale={scale}
+          frameCount={frameCount}
+        />
       </Animated.View>
       <Animated.View style={[styles.layer, { opacity: fade }]}>
-        <AccentLayers sheet={sheet} ramp={transition.to} offset={frameOffset} />
+        <AccentLayers
+          sheet={sheet}
+          ramp={transition.to}
+          offset={frameOffset}
+          scale={scale}
+          frameCount={frameCount}
+        />
       </Animated.View>
     </Animated.View>
   );
 }
 
+export function CharacterPreview({
+  characterId,
+  accentHex,
+  fallback,
+}: CharacterPreviewProps) {
+  if (!SHEETS_BY_CHARACTER[characterId]) return <>{fallback}</>;
+
+  return (
+    <CharacterSprite
+      characterId={characterId}
+      accentHex={accentHex}
+      walking={false}
+      scale={0.5}
+    />
+  );
+}
+
 const styles = StyleSheet.create({
   root: {
-    width: CELL.width * STAGE_SCALE,
-    height: ANCHOR_Y * STAGE_SCALE,
     overflow: 'hidden',
   },
   layer: {
@@ -204,16 +281,10 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     left: 0,
-    width: CELL.width * 24 * STAGE_SCALE,
-    height: CELL.height * STAGE_SCALE,
   },
   shadow: {
     position: 'absolute',
-    left: 37 * STAGE_SCALE,
     bottom: 0,
-    width: 54 * STAGE_SCALE,
-    height: 10 * STAGE_SCALE,
-    borderRadius: 27 * STAGE_SCALE,
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
   },
 });

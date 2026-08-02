@@ -2,9 +2,11 @@
  * Settings. Notification toggles + dev panel (behind settings.devMode).
  */
 
+import { router } from 'expo-router';
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
+import { Button } from '@/src/ui/Button';
 import { Panel } from '@/src/ui/Panel';
 import { useAccentColor } from '@/src/ui/AccentColor';
 import { Text } from '@/src/ui/Text';
@@ -14,6 +16,25 @@ import { useStore } from '@/src/state/store';
 export default function SettingsScreen() {
   const settings = useStore((s) => s.settings);
   const updateSettings = useStore((s) => s.updateSettings);
+  const resetAll = useStore((s) => s.resetAll);
+
+  const resetJourney = () => {
+    void resetAll().then(() => router.replace('/onboarding/character'));
+  };
+
+  const confirmReset = () => {
+    const message = 'This clears your Chronicle and all journey progress.';
+
+    if (Platform.OS === 'web') {
+      if (globalThis.confirm(`Reset journey?\n\n${message}`)) resetJourney();
+      return;
+    }
+
+    Alert.alert('Reset journey?', message, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Reset journey', style: 'destructive', onPress: resetJourney },
+    ]);
+  };
 
   return (
     <ScrollView style={styles.root} contentContainerStyle={{ padding: spacing.md, gap: spacing.md }}>
@@ -37,6 +58,15 @@ export default function SettingsScreen() {
         />
       </Panel>
 
+      <Panel>
+        <View style={styles.resetBlock}>
+          <Text>Reset journey</Text>
+          <Text variant="caption" muted>
+            Erases your Chronicle and returns to character selection.
+          </Text>
+          <Button label="Reset journey" variant="danger" onPress={confirmReset} />
+        </View>
+      </Panel>
     </ScrollView>
   );
 }
@@ -68,5 +98,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     minHeight: 44,
+  },
+  resetBlock: {
+    gap: spacing.sm,
   },
 });
