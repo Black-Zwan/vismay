@@ -7,9 +7,16 @@ import {
   createWorldRenderer,
   type WorldRenderer,
 } from './renderer';
+import { CharacterSprite } from './CharacterSprite';
 import type { WorldViewProps } from './types';
 
-export function WorldView({ daypart, waymarkId, walkProgress, accentHex }: WorldViewProps) {
+export function WorldView({
+  daypart,
+  waymarkId,
+  walkProgress,
+  characterId,
+  accentHex,
+}: WorldViewProps) {
   const rendererRef = useRef<WorldRenderer | null>(null);
   const inputsRef = useRef({ daypart, waymarkId, walkProgress, accentHex });
   const [rendererFailed, setRendererFailed] = useState(false);
@@ -44,6 +51,13 @@ export function WorldView({ daypart, waymarkId, walkProgress, accentHex }: World
       ) : (
         <View style={styles.fallback} />
       )}
+      <View style={styles.character}>
+        <CharacterSprite
+          characterId={characterId}
+          accentHex={accentHex}
+          walking={walkProgress < 1}
+        />
+      </View>
     </View>
   );
 }
@@ -61,6 +75,11 @@ const styles = StyleSheet.create({
   fallback: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: '#15152a',
+  },
+  character: {
+    position: 'absolute',
+    left: '22%',
+    bottom: '12.5%',
   },
 });
 
