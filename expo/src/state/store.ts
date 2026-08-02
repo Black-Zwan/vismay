@@ -41,7 +41,12 @@ import {
 } from '@/src/core/leg';
 import { ASPECT_IDS, emptyAspects, scorePull, seedAspectsForElement } from '@/src/core/mirror';
 import { assemblePassage } from '@/src/core/passage';
-import { daypartFromTimestamp } from '@/src/core/time';
+import {
+  DEV_DAYPART_OVERRIDE,
+  daypartFromTimestamp,
+  now,
+  setDevOffset,
+} from '@/src/core/time';
 import type { Daypart } from '@/src/core/time';
 import { makeId } from '@/src/core/ids';
 import { DEFAULT_CHARACTER_ID, getCharacter } from '@/src/content/characters';
@@ -92,13 +97,15 @@ export interface StoreState extends AppState {
 
   // --- dev panel ---
   devForceArrival: () => void;
+  devSetTimeOffset: (offsetMs: number) => void;
   devToggleFastLegs: (on: boolean) => void;
+  devTogglePlus: (on: boolean) => void;
   devForceDaypart: (part: Daypart | null) => void;
 }
 
 /** Build the default initial AppState. */
 function defaultAppState(): AppState {
-  const now = Date.now();
+  const timestamp = now();
   const duration = legDurationMs(false, false);
   return {
     phase: 'traveling',
@@ -108,9 +115,9 @@ function defaultAppState(): AppState {
       signId: DEFAULT_SIGN_ID,
       dayIndex: 0,
       waymarkIndex: 0,
-      legStartedAt: now,
+      legStartedAt: timestamp,
       legDurationMs: duration,
-      arrivalAt: computeArrivalAt(now, duration),
+      arrivalAt: computeArrivalAt(timestamp, duration),
       bankedArrivals: 0,
       stepsWalked: 0,
       isPlus: false,
@@ -127,6 +134,7 @@ function defaultAppState(): AppState {
       notifyWeekly: false,
       devMode: false,
     },
+    devOffsetMs: 0,
     schemaVersion: CURRENT_SCHEMA_VERSION,
   };
 }
@@ -167,7 +175,7 @@ function runNotifyEffect(state: AppState, devFastLegs: boolean): void {
 
 export const useStore = create<StoreState>((set, get) => ({
   ...defaultAppState(),
-  clockGuard: { lastSeenTimestamp: Date.now(), monotonicCounter: 0 },
+  clockGuard: { lastSeenTimestamp: now(), monotonicCounter: 0 },
   hydrated: false,
   devFastLegs: false,
   pullDraft: null,
@@ -175,11 +183,17 @@ export const useStore = create<StoreState>((set, get) => ({
   hydrate: async () => {
     const envelope = await loadPersistedState();
     if (!envelope) {
+      setDevOffset(0);
       set({ hydrated: true });
       return;
     }
+    const restoredOffset = envelope.state.settings.devMode
+      ? envelope.state.devOffsetMs
+      : 0;
+    setDevOffset(restoredOffset);
     set({
       ...envelope.state,
+      devOffsetMs: restoredOffset,
       clockGuard: envelope.clockGuard,
       hydrated: true,
     });
@@ -189,10 +203,11 @@ export const useStore = create<StoreState>((set, get) => ({
 
   resetAll: async () => {
     await clearPersistedState();
+    setDevOffset(0);
     const fresh = defaultAppState();
     set({
       ...fresh,
-      clockGuard: { lastSeenTimestamp: Date.now(), monotonicCounter: 0 },
+      clockGuard: { lastSeenTimestamp: now(), monotonicCounter: 0 },
       hydrated: true,
       devFastLegs: false,
       pullDraft: null,
@@ -202,16 +217,16 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   completeOnboarding: (characterId, signId) => {
-    const now = Date.now();
+    const timestamp = now();
     const duration = legDurationMs(get().journey.isPlus, get().devFastLegs);
     const selectedSignId = signId || DEFAULT_SIGN_ID;
     const journey = {
       ...get().journey,
       characterId: characterId || DEFAULT_CHARACTER_ID,
       signId: selectedSignId,
-      legStartedAt: now,
+      legStartedAt: timestamp,
       legDurationMs: duration,
-      arrivalAt: computeArrivalAt(now, duration),
+      arrivalAt: computeArrivalAt(timestamp, duration),
       bankedArrivals: 0,
       dayIndex: 0,
       waymarkIndex: 0,
@@ -228,13 +243,13 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   tick: (nowInput) => {
-    const now = nowInput ?? Date.now();
+    const timestamp = nowInput ?? now();
     const state = get();
     if (!state.onboarded) {
       // Still update clock guard even before onboarding.
       set({
         clockGuard: {
-          lastSeenTimestamp: now,
+          lastSeenTimestamp: timestamp,
           monotonicCounter: state.clockGuard.monotonicCounter + 1,
         },
       });
@@ -243,7 +258,7 @@ export const useStore = create<StoreState>((set, get) => ({
 
     const { journey: updated, newlyBanked } = creditArrivals(
       state.journey,
-      now,
+      timestamp,
       state.devFastLegs,
     );
 
@@ -253,7 +268,7 @@ export const useStore = create<StoreState>((set, get) => ({
     const phase: Phase =
       updated.bankedArrivals > 0
         ? 'arrive'
-        : isLegComplete(updated, now)
+        : isLegComplete(updated, timestamp)
           ? 'arrive'
           : state.phase === 'arrive'
             ? 'arrive'
@@ -263,7 +278,7 @@ export const useStore = create<StoreState>((set, get) => ({
       journey: { ...updated, stepsWalked: steps },
       phase,
       clockGuard: {
-        lastSeenTimestamp: now,
+        lastSeenTimestamp: timestamp,
         monotonicCounter: state.clockGuard.monotonicCounter + 1,
       },
     });
@@ -318,7 +333,7 @@ export const useStore = create<StoreState>((set, get) => ({
     const state = get();
     if (state.phase !== 'walk' && state.phase !== 'done') return;
     if (!state.pullDraft) return;
-    const now = Date.now();
+    const timestamp = now();
     const draft = state.pullDraft;
     const lens = getLens(draft.lensId);
     const card = getCard(draft.cardId);
@@ -349,10 +364,10 @@ export const useStore = create<StoreState>((set, get) => ({
       answerText: passage.answerText,
       departText: wm.departText,
       curioIds: [],
-      createdAt: now,
+      createdAt: timestamp,
     };
     const recentPulls = [
-      { cardId: card.id, lensId: lens.id, at: now },
+      { cardId: card.id, lensId: lens.id, at: timestamp },
       ...state.mirror.recentPulls,
     ].slice(0, 10);
     const aspects = scorePull(state.mirror.aspects, lens, card);
@@ -371,7 +386,7 @@ export const useStore = create<StoreState>((set, get) => ({
     // arrival presentation after the walk animation — i.e. we still start the
     // next leg now; when tick() runs and banked>0 we present 'arrive'.
     // Per spec: always play the walk first, then present a fresh arrival.
-    journey = startNextLeg(journey, now, get().devFastLegs);
+    journey = startNextLeg(journey, timestamp, get().devFastLegs);
 
     // If banked arrivals still remain, immediately mark phase 'arrive' again
     // so the user can do another pull — but only after the walk animation
@@ -395,7 +410,10 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   updateSettings: (patch) => {
-    set({ settings: { ...get().settings, ...patch } });
+    const settings = { ...get().settings, ...patch };
+    const devOffsetMs = settings.devMode ? get().devOffsetMs : 0;
+    if (!settings.devMode) setDevOffset(0);
+    set({ settings, devOffsetMs });
     runNotifyEffect(get(), get().devFastLegs);
     void persistState(getAppState(get()), get().clockGuard);
   },
@@ -403,39 +421,62 @@ export const useStore = create<StoreState>((set, get) => ({
   devForceArrival: () => {
     const state = get();
     if (!state.onboarded) return;
-    const now = Date.now();
+    const timestamp = now();
     const journey = {
       ...state.journey,
       bankedArrivals: Math.min(MAX_BANKED_ARRIVALS, state.journey.bankedArrivals + 1),
-      // Complete the current leg so tick sees an arrival.
-      arrivalAt: now,
+      legStartedAt: timestamp - state.journey.legDurationMs,
+      arrivalAt: timestamp,
     };
     set({ journey, phase: 'arrive' });
     runNotifyEffect(get(), get().devFastLegs);
     void persistState(getAppState(get()), get().clockGuard);
   },
 
+  devSetTimeOffset: (offsetMs) => {
+    const state = get();
+    if (!state.settings.devMode) return;
+    const minOffset = -24 * 60 * 60 * 1000;
+    const maxOffset = 48 * 60 * 60 * 1000;
+    const boundedOffset = Math.max(minOffset, Math.min(maxOffset, offsetMs));
+    setDevOffset(boundedOffset);
+    set({ devOffsetMs: boundedOffset });
+    get().tick();
+  },
+
   devToggleFastLegs: (on) => {
     const state = get();
-    const now = Date.now();
+    const timestamp = now();
     const duration = on ? DEV_LEG_MS : legDurationMs(state.journey.isPlus, false);
     const journey = {
       ...state.journey,
-      legStartedAt: now,
+      legStartedAt: timestamp,
       legDurationMs: duration,
-      arrivalAt: computeArrivalAt(now, duration),
+      arrivalAt: computeArrivalAt(timestamp, duration),
     };
     set({ devFastLegs: on, journey });
     runNotifyEffect(get(), get().devFastLegs);
     void persistState(getAppState(get()), get().clockGuard);
   },
 
+  devTogglePlus: (on) => {
+    const state = get();
+    const timestamp = now();
+    const duration = legDurationMs(on, state.devFastLegs);
+    const journey = {
+      ...state.journey,
+      isPlus: on,
+      legStartedAt: timestamp,
+      legDurationMs: duration,
+      arrivalAt: computeArrivalAt(timestamp, duration),
+    };
+    set({ journey });
+    runNotifyEffect(get(), get().devFastLegs);
+    void persistState(getAppState(get()), get().clockGuard);
+  },
+
   devForceDaypart: (part) => {
-    // Delegates to the time module's override singleton.
-    // Imported lazily to avoid a hard dependency cycle.
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const time = require('@/src/core/time') as typeof import('@/src/core/time');
-    time.DEV_DAYPART_OVERRIDE.current = part;
+    DEV_DAYPART_OVERRIDE.current = part;
   },
 }));
 
@@ -448,6 +489,7 @@ function getAppState(s: StoreState): AppState {
     chronicle: s.chronicle,
     mirror: s.mirror,
     settings: s.settings,
+    devOffsetMs: s.settings.devMode ? s.devOffsetMs : 0,
     schemaVersion: s.schemaVersion,
   };
 }

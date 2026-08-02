@@ -10,10 +10,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { AppState, PersistedEnvelope, ClockGuard } from '@/src/state/types';
 
 /** Current schema version. Bump when AppState shape changes. */
-export const CURRENT_SCHEMA_VERSION = 1;
+export const CURRENT_SCHEMA_VERSION = 2;
 
-/** Storage key (versioned). */
-const STORAGE_KEY = `vismay_state_v${CURRENT_SCHEMA_VERSION}`;
+function storageKey(version: number): string {
+  return `vismay_state_v${version}`;
+}
+
+const STORAGE_KEY = storageKey(CURRENT_SCHEMA_VERSION);
 
 /**
  * Storage backend interface. Swap implementations without touching the store.
@@ -80,14 +83,21 @@ export async function flushPersistedState(state: AppState, clockGuard: ClockGuar
 
 /** Load and migrate persisted state. Returns null if nothing stored. */
 export async function loadPersistedState(): Promise<PersistedEnvelope | null> {
-  const raw = await backend.getItem(STORAGE_KEY);
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw) as PersistedEnvelope;
-    return migrateEnvelope(parsed);
-  } catch {
-    return null;
+  for (let version = CURRENT_SCHEMA_VERSION; version >= 1; version -= 1) {
+    const raw = await backend.getItem(storageKey(version));
+    if (!raw) continue;
+    try {
+      const parsed = JSON.parse(raw) as PersistedEnvelope;
+      const migrated = migrateEnvelope(parsed);
+      if (version !== CURRENT_SCHEMA_VERSION) {
+        await backend.setItem(STORAGE_KEY, JSON.stringify(migrated));
+      }
+      return migrated;
+    } catch {
+      // Try an older envelope before treating storage as empty.
+    }
   }
+  return null;
 }
 
 /** Wipe persisted state. */
@@ -96,7 +106,11 @@ export async function clearPersistedState(): Promise<void> {
     clearTimeout(writeTimer);
     writeTimer = null;
   }
-  await backend.removeItem(STORAGE_KEY);
+  await Promise.all(
+    Array.from({ length: CURRENT_SCHEMA_VERSION }, (_, index) =>
+      backend.removeItem(storageKey(index + 1)),
+    ),
+  );
 }
 
 /**
@@ -105,10 +119,21 @@ export async function clearPersistedState(): Promise<void> {
  */
 function migrateEnvelope(envelope: PersistedEnvelope): PersistedEnvelope {
   let current = envelope;
-  // Example future migration:
-  // if (current.schemaVersion < 2) {
-  //   current = migrateV1ToV2(current);
-  // }
-  current = { ...current, schemaVersion: CURRENT_SCHEMA_VERSION };
+  if (current.schemaVersion < 2) {
+    current = {
+      ...current,
+      state: {
+        ...current.state,
+        devOffsetMs: 0,
+        schemaVersion: 2,
+      },
+      schemaVersion: 2,
+    };
+  }
+  current = {
+    ...current,
+    state: { ...current.state, schemaVersion: CURRENT_SCHEMA_VERSION },
+    schemaVersion: CURRENT_SCHEMA_VERSION,
+  };
   return current;
 }

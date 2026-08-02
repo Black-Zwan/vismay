@@ -12,13 +12,28 @@ export type Daypart =
   | 'dusk'
   | 'night';
 
+let devOffsetMs = 0;
+
+/** Current game time. Dev builds may shift it without changing wall time. */
+export function now(): number {
+  return Date.now() + devOffsetMs;
+}
+
+export function setDevOffset(ms: number): void {
+  devOffsetMs = ms;
+}
+
+export function getDevOffset(): number {
+  return devOffsetMs;
+}
+
 /** Hour boundaries (inclusive start, exclusive end). */
 const DAYPART_HOURS: { part: Daypart; from: number; to: number }[] = [
-  { part: 'dawn', from: 5, to: 8 }, // 05:00–08:59
-  { part: 'morning', from: 9, to: 11 }, // 09:00–11:59
-  { part: 'noon', from: 12, to: 13 }, // 12:00–13:59
-  { part: 'afternoon', from: 14, to: 17 }, // 14:00–17:59
-  { part: 'dusk', from: 18, to: 20 }, // 18:00–20:59
+  { part: 'dawn', from: 5, to: 9 }, // 05:00–08:59
+  { part: 'morning', from: 9, to: 12 }, // 09:00–11:59
+  { part: 'noon', from: 12, to: 14 }, // 12:00–13:59
+  { part: 'afternoon', from: 14, to: 18 }, // 14:00–17:59
+  { part: 'dusk', from: 18, to: 21 }, // 18:00–20:59
   { part: 'night', from: 21, to: 5 }, // 21:00–04:59 (wraps midnight)
 ];
 

@@ -5,26 +5,15 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
-import { Button } from '@/src/ui/Button';
 import { Panel } from '@/src/ui/Panel';
 import { useAccentColor } from '@/src/ui/AccentColor';
 import { Text } from '@/src/ui/Text';
 import { colors, spacing } from '@/src/ui/tokens';
 import { useStore } from '@/src/state/store';
-import { ASPECT_IDS } from '@/src/core/mirror';
-import { DEV_DAYPART_OVERRIDE } from '@/src/core/time';
-import type { Daypart } from '@/src/core/time';
 
 export default function SettingsScreen() {
   const settings = useStore((s) => s.settings);
   const updateSettings = useStore((s) => s.updateSettings);
-  const devMode = settings.devMode;
-  const devFastLegs = useStore((s) => s.devFastLegs);
-  const devForceArrival = useStore((s) => s.devForceArrival);
-  const devToggleFastLegs = useStore((s) => s.devToggleFastLegs);
-  const devForceDaypart = useStore((s) => s.devForceDaypart);
-  const resetAll = useStore((s) => s.resetAll);
-  const accent = useAccentColor();
 
   return (
     <ScrollView style={styles.root} contentContainerStyle={{ padding: spacing.md, gap: spacing.md }}>
@@ -48,45 +37,6 @@ export default function SettingsScreen() {
         />
       </Panel>
 
-      {devMode ? (
-        <Panel>
-          <Text variant="label" muted>Dev panel</Text>
-
-          <Button label="Force arrival" onPress={devForceArrival} style={{ marginTop: spacing.sm }} />
-          <Button
-            label={devFastLegs ? 'Fast legs: ON' : 'Fast legs: OFF'}
-            variant="ghost"
-            onPress={() => devToggleFastLegs(!devFastLegs)}
-            style={{ marginTop: spacing.sm }}
-          />
-
-          <Text variant="label" muted style={{ marginTop: spacing.md }}>Force daypart</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.xs }}>
-            {(['dawn', 'morning', 'noon', 'afternoon', 'dusk', 'night', null] as (Daypart | null)[]).map((p) => {
-              const active = DEV_DAYPART_OVERRIDE.current === p;
-              return (
-                <Pressable
-                  key={p ?? 'auto'}
-                  onPress={() => devForceDaypart(p)}
-                  style={[
-                    styles.chip,
-                    { borderColor: active ? accent : colors.line },
-                  ]}
-                >
-                  <Text variant="caption">{p ?? 'Auto'}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          <Button
-            label="Reset all state"
-            variant="danger"
-            onPress={() => void resetAll()}
-            style={{ marginTop: spacing.md }}
-          />
-        </Panel>
-      ) : null}
     </ScrollView>
   );
 }
@@ -119,14 +69,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minHeight: 44,
   },
-  chip: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 6,
-    backgroundColor: colors.surface,
-  },
 });
-
-// Keep ASPECT_IDS import referenced for tree-shaking safety in type-only files.
-void ASPECT_IDS;
