@@ -15,7 +15,6 @@
 import { create } from 'zustand';
 import type {
   AppState,
-  AspectId,
   ChronicleEntry,
   ClockGuard,
   MirrorState,
@@ -39,12 +38,12 @@ import {
   startNextLeg,
   walkProgress,
 } from '@/src/core/leg';
-import { ASPECT_IDS, crossedThresholds, curioIdForThreshold, scorePull } from '@/src/core/mirror';
+import { ASPECT_IDS, emptyAspects, scorePull, seedAspectsForElement } from '@/src/core/mirror';
 import { daypartFromTimestamp } from '@/src/core/time';
 import type { Daypart } from '@/src/core/time';
 import { makeId } from '@/src/core/ids';
 import { DEFAULT_CHARACTER_ID, getCharacter } from '@/src/content/characters';
-import { DEFAULT_SIGN_ID } from '@/src/content/signs';
+import { DEFAULT_SIGN_ID, getSign } from '@/src/content/signs';
 import { getCard, pickCardForPull } from '@/src/content/cards';
 import { getLens } from '@/src/content/lenses';
 import { getWaymark, nextWaymarkIndex, waymarkAt } from '@/src/content/waymarks';
@@ -115,14 +114,7 @@ function defaultAppState(): AppState {
     },
     chronicle: [],
     mirror: {
-      aspects: {
-        tenderness: 25,
-        resolve: 25,
-        craft: 25,
-        sight: 25,
-        solitude: 25,
-        fortune: 25,
-      },
+      aspects: emptyAspects(),
       satchel: [],
       lensHistory: [],
       recentPulls: [],
@@ -136,16 +128,10 @@ function defaultAppState(): AppState {
   };
 }
 
-function defaultMirror(): MirrorState {
+function defaultMirror(signId?: string): MirrorState {
+  const sign = signId ? getSign(signId) : undefined;
   return {
-    aspects: {
-      tenderness: 25,
-      resolve: 25,
-      craft: 25,
-      sight: 25,
-      solitude: 25,
-      fortune: 25,
-    },
+    aspects: sign ? seedAspectsForElement(sign.element) : emptyAspects(),
     satchel: [],
     lensHistory: [],
     recentPulls: [],
@@ -215,10 +201,11 @@ export const useStore = create<StoreState>((set, get) => ({
   completeOnboarding: (characterId, signId) => {
     const now = Date.now();
     const duration = legDurationMs(get().journey.isPlus, get().devFastLegs);
+    const selectedSignId = signId || DEFAULT_SIGN_ID;
     const journey = {
       ...get().journey,
       characterId: characterId || DEFAULT_CHARACTER_ID,
-      signId: signId || DEFAULT_SIGN_ID,
+      signId: selectedSignId,
       legStartedAt: now,
       legDurationMs: duration,
       arrivalAt: computeArrivalAt(now, duration),
@@ -231,6 +218,7 @@ export const useStore = create<StoreState>((set, get) => ({
       onboarded: true,
       phase: 'traveling',
       journey,
+      mirror: defaultMirror(selectedSignId),
     });
     runNotifyEffect(get(), get().devFastLegs);
     void persistState(getAppState(get()), get().clockGuard);
@@ -330,10 +318,6 @@ export const useStore = create<StoreState>((set, get) => ({
     // Score the pull.
     const before = state.mirror.aspects;
     const after = scorePull(before, lens, card);
-    const crossed = crossedThresholds(before, after);
-    const newCurios = crossed.map((c) => curioIdForThreshold(c.aspect, c.threshold));
-    const satchel = Array.from(new Set([...state.mirror.satchel, ...newCurios]));
-
     const wm = waymarkAt(state.journey.waymarkIndex);
     const entry: ChronicleEntry = {
       id: makeId('entry'),
@@ -344,7 +328,7 @@ export const useStore = create<StoreState>((set, get) => ({
       openerText: draft.openerText,
       answerText: draft.answerText,
       departText: wm.departText,
-      curioIds: newCurios,
+      curioIds: [],
       createdAt: Date.now(),
     };
 
@@ -359,7 +343,6 @@ export const useStore = create<StoreState>((set, get) => ({
       mirror: {
         ...state.mirror,
         aspects: after,
-        satchel,
         lensHistory: [draft.lensId, ...state.mirror.lensHistory].slice(0, 30),
         recentPulls,
       },

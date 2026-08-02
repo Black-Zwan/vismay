@@ -1,14 +1,8 @@
-/**
- * Aspect scoring logic. Pure, no platform imports.
- *
- * Scoring: each pull adjusts the lens's primary and secondary aspects.
- * Threshold crossings unlock curios.
- */
+/** Mirror aspect scoring. Pure functions, no platform imports. */
 
+import type { CardEntry, LensEntry, SignEntry } from '@/src/content/types';
 import type { AspectId } from '@/src/state/types';
-import type { CardEntry, LensEntry } from '@/src/content/types';
 
-/** Canonical ordering of aspect ids. */
 export const ASPECT_IDS: AspectId[] = [
   'tenderness',
   'resolve',
@@ -18,69 +12,79 @@ export const ASPECT_IDS: AspectId[] = [
   'fortune',
 ];
 
-/** Score bounds. */
-const MIN_SCORE = 0;
-const MAX_SCORE = 100;
+export const TITLE_THRESHOLDS = [10, 26, 52] as const;
 
-/** Thresholds at which curios are unlocked. */
-const THRESHOLDS: number[] = [25, 50, 75];
+const ELEMENT_ASPECT: Record<SignEntry['element'], AspectId> = {
+  Fire: 'resolve',
+  Earth: 'craft',
+  Air: 'sight',
+  Water: 'tenderness',
+};
 
-/** How much a pull shifts the primary and secondary aspects. */
-const PRIMARY_SHIFT = 5;
-const SECONDARY_SHIFT = 2;
+export function emptyAspects(): Record<AspectId, number> {
+  return {
+    tenderness: 0,
+    resolve: 0,
+    craft: 0,
+    sight: 0,
+    solitude: 0,
+    fortune: 0,
+  };
+}
 
-/** Clamp a score to valid bounds. */
-function clampScore(n: number): number {
-  return Math.max(MIN_SCORE, Math.min(MAX_SCORE, n));
+/** Apply the hidden +3 onboarding seed associated with a sign element. */
+export function seedAspectsForElement(
+  element: SignEntry['element'],
+): Record<AspectId, number> {
+  const aspects = emptyAspects();
+  aspects[ELEMENT_ASPECT[element]] = 3;
+  return aspects;
 }
 
 /**
- * Score a pull: adjust the primary and secondary aspects for the chosen lens.
- * Returns the new aspects map (does not mutate the input).
+ * Score a pull without mutating the previous counters.
+ *
+ * Missing owner-authored mappings contribute nothing until they are assigned.
  */
 export function scorePull(
   before: Record<AspectId, number>,
   lens: LensEntry,
-  _card: CardEntry,
+  card: CardEntry,
 ): Record<AspectId, number> {
   const after = { ...before };
-  if (!lens.primaryAspect || !lens.secondaryAspect) return after;
-  after[lens.primaryAspect] = clampScore(after[lens.primaryAspect] + PRIMARY_SHIFT);
-  after[lens.secondaryAspect] = clampScore(after[lens.secondaryAspect] + SECONDARY_SHIFT);
+
+  if (lens.primaryAspect) {
+    after[lens.primaryAspect] += 2;
+  }
+  if (lens.secondaryAspect) {
+    after[lens.secondaryAspect] += 1;
+  }
+  if (card.aspect) {
+    after[card.aspect] += 1;
+  }
+
   return after;
 }
 
-/** A threshold crossing for a single aspect. */
 export interface ThresholdCrossing {
   aspect: AspectId;
-  threshold: number;
+  threshold: (typeof TITLE_THRESHOLDS)[number];
 }
 
-/**
- * Detect thresholds crossed between the before and after scores.
- * A crossing is when a threshold value is newly reached (before < threshold <= after).
- */
+/** Return every title threshold newly reached by this score change. */
 export function crossedThresholds(
   before: Record<AspectId, number>,
   after: Record<AspectId, number>,
 ): ThresholdCrossing[] {
   const crossed: ThresholdCrossing[] = [];
-  for (const id of ASPECT_IDS) {
-    const b = before[id];
-    const a = after[id];
-    for (const t of THRESHOLDS) {
-      if (b < t && a >= t) {
-        crossed.push({ aspect: id, threshold: t });
+
+  for (const aspect of ASPECT_IDS) {
+    for (const threshold of TITLE_THRESHOLDS) {
+      if (before[aspect] < threshold && after[aspect] >= threshold) {
+        crossed.push({ aspect, threshold });
       }
     }
   }
-  return crossed;
-}
 
-/**
- * Derive a deterministic curio id from an aspect + threshold crossing.
- * The content layer maps these to display names.
- */
-export function curioIdForThreshold(aspect: AspectId, threshold: number): string {
-  return `curio_${aspect}_${threshold}`;
+  return crossed;
 }
