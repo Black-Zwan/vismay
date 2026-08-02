@@ -57,7 +57,7 @@ export default function RoadScreen() {
       </View>
 
       <View style={styles.footer}>
-        <Panel>
+        <Panel style={styles.footerPanel}>
           <Text variant="caption" muted>{`Day ${journey.dayIndex}`}</Text>
           <Text>{character?.name ?? 'Character'} {sign ? `${sign.glyph}\uFE0E` : ''}</Text>
           <Text variant="caption" muted style={{ marginTop: 4 }}>
@@ -98,6 +98,15 @@ function formatRemaining(ms: number): string {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.background },
-  world: { flex: 1 },
-  footer: { padding: spacing.md },
+  world: { flex: 1, alignItems: 'center' },
+  footer: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    left: 0,
+    padding: spacing.md,
+  },
+  footerPanel: {
+    backgroundColor: 'rgba(17, 14, 28, 0.74)',
+  },
 });
