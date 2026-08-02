@@ -24,7 +24,7 @@ A painterly side-on world with three-depth parallax, drawn procedurally and dith
 
 **Technique.** An 8×8 Bayer ordered-dither matrix over value-noise gradients. Skies, ground, water and glow ramp through limited palettes and dither, producing a cross-hatched grain that reads as hand-made rather than as filtered pixel art. Characters and props composite over that, so silhouettes stay crisp against textured ground.
 
-**Parallax.** Three strips at 0.28× / 0.85× / 1.5× *(verify against source)*, driven by one animation loop. Strip width 1200px, wrapping.
+**Parallax.** Three ridge depths scroll at 0.00008 / 0.00014 / 0.00022 — a 1 : 1.75 : 2.75 ratio — driven by one animation loop. Ground scrolls at 0.0016, path stones at 0.0017, and foreground at 0.0028.
 
 **Dayparts.** Six sky ramps, each three stops, with sun/moon position, orb color and star density. A card pull **tints** the daypart palette rather than replacing it — roughly a 45% mix toward the card's sky. The sky belongs to the clock; the card colors the light.
 
