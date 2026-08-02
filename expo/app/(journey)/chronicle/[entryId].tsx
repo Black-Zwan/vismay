@@ -11,6 +11,7 @@ import { Panel } from '@/src/ui/Panel';
 import { PassageText } from '@/src/ui/PassageText';
 import { Text } from '@/src/ui/Text';
 import { colors, spacing } from '@/src/ui/tokens';
+import { useReducedMotion } from '@/src/ui/useReducedMotion';
 import { useStore } from '@/src/state/store';
 import { getCard } from '@/src/content/cards';
 import { getWaymark } from '@/src/content/waymarks';
@@ -21,6 +22,7 @@ export default function EntryScreen() {
   const { entryId } = useLocalSearchParams<{ entryId: string }>();
   const entry = useStore((s) => s.chronicle.find((e) => e.id === entryId));
   const [cardOpen, setCardOpen] = useState(false);
+  const reducedMotion = useReducedMotion();
 
   if (!entry) {
     return (
@@ -42,7 +44,7 @@ export default function EntryScreen() {
     <ScrollView style={styles.root} contentContainerStyle={{ padding: spacing.md, gap: spacing.md }}>
       <Panel>
         <Text variant="caption" muted>{`Day ${entry.dayIndex}`}</Text>
-        <Text variant="title">{wm?.name ?? 'Waymark'}</Text>
+        <Text variant="display">{wm?.name ?? 'Waymark'}</Text>
         <Text muted style={{ marginTop: 2 }}>
           {card?.name ?? 'Card'} · {lens?.label ?? 'Lens'}
         </Text>
@@ -52,34 +54,36 @@ export default function EntryScreen() {
       </Panel>
 
       <Panel>
-        <Text variant="caption" muted>Opener</Text>
+        <Text variant="label" muted>Opener</Text>
         <PassageText
           text={entry.openerText}
           lensLabel={lensLabel}
           cardName={cardName}
+          accentHex={card?.accentHex}
           style={{ marginTop: 4 }}
         />
       </Panel>
 
       <Panel>
-        <Text variant="caption" muted>Answer</Text>
+        <Text variant="label" muted>Answer</Text>
         <PassageText
           text={entry.answerText}
           lensLabel={lensLabel}
           cardName={cardName}
+          accentHex={card?.accentHex}
           onCardPress={() => setCardOpen(true)}
           style={{ marginTop: 4 }}
         />
       </Panel>
 
       <Panel>
-        <Text variant="caption" muted>Departure</Text>
+        <Text variant="label" muted>Departure</Text>
         <Text style={{ marginTop: 4 }}>{entry.departText}</Text>
       </Panel>
 
       {entry.curioIds.length > 0 ? (
         <Panel>
-          <Text variant="caption" muted>Curios gained</Text>
+          <Text variant="label" muted>Curios gained</Text>
           <View style={{ marginTop: spacing.sm, gap: spacing.xs }}>
             {entry.curioIds.map((id) => {
               const c = getCurio(id);
@@ -90,17 +94,17 @@ export default function EntryScreen() {
       ) : null}
 
       <Modal
-        animationType="fade"
+        animationType={reducedMotion ? 'none' : 'fade'}
         transparent
         visible={cardOpen}
         onRequestClose={() => setCardOpen(false)}
       >
         <View style={styles.modalBackdrop}>
-          <Panel style={[styles.cardModal, { borderColor: card?.accentHex ?? colors.accent }]}>
-            <Text variant="caption" muted>{card?.numeral ?? ''}</Text>
-            <Text variant="title">{cardName}</Text>
-            <Text muted style={{ marginTop: spacing.xs }}>{card?.epigraph ?? ''}</Text>
-            <Text style={{ marginTop: spacing.md }}>
+          <Panel style={[styles.cardModal, { borderColor: card?.accentHex ?? colors.textMuted }]}>
+            <Text variant="numeral" muted>{card?.numeral ?? ''}</Text>
+            <Text variant="display">{cardName}</Text>
+            <Text variant="reading" muted style={{ marginTop: spacing.xs }}>{card?.epigraph ?? ''}</Text>
+            <Text variant="reading" style={{ marginTop: spacing.md }}>
               {card?.readings[entry.lensId] ?? 'TODO: copy'}
             </Text>
             <Button
@@ -117,13 +121,13 @@ export default function EntryScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
+  root: { flex: 1, backgroundColor: colors.background },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
   modalBackdrop: {
     flex: 1,
     justifyContent: 'center',
     padding: spacing.lg,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: colors.overlay,
   },
   cardModal: { borderWidth: 2 },
 });

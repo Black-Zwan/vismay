@@ -56,6 +56,7 @@ export default function ChronicleScreen() {
                   text={item.answerText}
                   lensLabel={`${lens?.glyph ?? ''} ${lens?.label ?? 'Lens'}`.trim()}
                   cardName={card?.name ?? 'Card'}
+                  accentHex={card?.accentHex}
                   variant="caption"
                   muted
                   numberOfLines={2}
@@ -73,7 +74,7 @@ export default function ChronicleScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
+  root: { flex: 1, backgroundColor: colors.background },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
   row: { marginBottom: 0 },
 });

@@ -1,7 +1,3 @@
-/**
- * Onboarding layout. A simple stack for character + sign selection.
- */
-
 import { Stack } from 'expo-router';
 import React from 'react';
 
@@ -10,7 +6,7 @@ import { NavigationTitle } from '@/src/ui/NavigationTitle';
 import { colors } from '@/src/ui/tokens';
 import { useReducedMotion } from '@/src/ui/useReducedMotion';
 
-export default function OnboardingLayout() {
+export default function ChronicleLayout() {
   const accent = useAccentColor();
   const reducedMotion = useReducedMotion();
 
@@ -25,8 +21,8 @@ export default function OnboardingLayout() {
         headerTitle: ({ children }) => <NavigationTitle>{children}</NavigationTitle>,
       }}
     >
-      <Stack.Screen name="character" options={{ title: 'Character' }} />
-      <Stack.Screen name="sign" options={{ title: 'Sign' }} />
+      <Stack.Screen name="index" options={{ title: 'Chronicle' }} />
+      <Stack.Screen name="[entryId]" options={{ title: 'Entry' }} />
     </Stack>
   );
 }

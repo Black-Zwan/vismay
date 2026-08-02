@@ -28,18 +28,20 @@ export default function RevealScreen() {
 
   return (
     <View style={styles.root}>
-      <Text variant="title" style={styles.title}>Your card</Text>
-
       <Pressable
         accessibilityRole="button"
         onPress={() => {
           revealCard();
           router.push('/pull/reading');
         }}
-        style={({ pressed }) => [styles.card, { borderColor: card?.accentHex ?? colors.accent }, pressed && { opacity: 0.7 }]}
+        style={({ pressed }) => [
+          styles.card,
+          { borderColor: card?.accentHex ?? colors.textMuted },
+          pressed && { opacity: 0.72 },
+        ]}
       >
-        <Text style={{ fontSize: 32 }}>{card?.numeral ?? '?'}</Text>
-        <Text style={{ marginTop: spacing.sm }}>{card?.name ?? 'Card'}</Text>
+        <Text variant="numeral">{card?.numeral ?? '?'}</Text>
+        <Text variant="display" style={{ marginTop: spacing.sm }}>{card?.name ?? 'Card'}</Text>
         <Text variant="caption" muted style={{ marginTop: spacing.xs }}>Tap to read</Text>
       </Pressable>
     </View>
@@ -47,14 +49,13 @@ export default function RevealScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, padding: spacing.md, backgroundColor: colors.bg, alignItems: 'center' },
-  title: { marginBottom: spacing.lg },
+  root: { flex: 1, padding: spacing.md, backgroundColor: colors.background, alignItems: 'center' },
   card: {
     width: 200,
     height: 280,
     borderRadius: 12,
     borderWidth: 2,
-    backgroundColor: colors.bgPanel,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },

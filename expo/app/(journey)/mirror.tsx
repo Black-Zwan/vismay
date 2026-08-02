@@ -17,10 +17,8 @@ export default function MirrorScreen() {
 
   return (
     <ScrollView style={styles.root} contentContainerStyle={{ padding: spacing.md, gap: spacing.md }}>
-      <Text variant="title">Mirror</Text>
-
       <Panel>
-        <Text variant="caption" muted>Aspects</Text>
+        <Text variant="label" muted>Aspects</Text>
         <View style={{ marginTop: spacing.sm, gap: spacing.sm }}>
           {ASPECT_LIST.map((a) => {
             const score = mirror.aspects[a.id];
@@ -30,9 +28,6 @@ export default function MirrorScreen() {
                   <Text>{a.name}</Text>
                   <Text muted>{score}</Text>
                 </View>
-                <View style={styles.track}>
-                  <View style={[styles.fill, { width: `${score}%`, backgroundColor: colors.accent }]} />
-                </View>
               </View>
             );
           })}
@@ -40,7 +35,7 @@ export default function MirrorScreen() {
       </Panel>
 
       <Panel>
-        <Text variant="caption" muted>Satchel</Text>
+        <Text variant="label" muted>Satchel</Text>
         {mirror.satchel.length === 0 ? (
           <Text muted style={{ marginTop: spacing.sm }}>Empty.</Text>
         ) : (
@@ -62,14 +57,6 @@ export default function MirrorScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
+  root: { flex: 1, backgroundColor: colors.background },
   row: { flexDirection: 'row', justifyContent: 'space-between' },
-  track: {
-    height: 6,
-    backgroundColor: colors.line,
-    borderRadius: 3,
-    marginTop: 4,
-    overflow: 'hidden',
-  },
-  fill: { height: 6, borderRadius: 3 },
 });

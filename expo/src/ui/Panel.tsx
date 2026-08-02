@@ -1,7 +1,3 @@
-/**
- * Plain Panel primitive. A bordered container. No styling flourish.
- */
-
 import React from 'react';
 import { View, StyleSheet, type ViewProps } from 'react-native';
 import { colors, radius, spacing } from '@/src/ui/tokens';
@@ -21,7 +17,7 @@ export function Panel({ padded = true, style, ...rest }: PanelProps) {
 
 const styles = StyleSheet.create({
   base: {
-    backgroundColor: colors.bgPanel,
+    backgroundColor: colors.surface,
     borderRadius: radius.md,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.line,

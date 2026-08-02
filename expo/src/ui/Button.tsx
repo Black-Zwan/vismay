@@ -1,9 +1,6 @@
-/**
- * Plain Button primitive. Pressable + tokens. No animations per spec.
- */
-
 import React from 'react';
 import { Pressable, StyleSheet, type PressableProps } from 'react-native';
+import { useAccentColor } from '@/src/ui/AccentColor';
 import { Text } from '@/src/ui/Text';
 import { colors, radius, spacing } from '@/src/ui/tokens';
 
@@ -14,13 +11,14 @@ export interface ButtonProps extends Omit<PressableProps, 'children'> {
 }
 
 export function Button({ label, variant = 'primary', disabled, style, ...rest }: ButtonProps) {
+  const accent = useAccentColor();
   const bg =
     variant === 'ghost'
       ? 'transparent'
       : variant === 'danger'
         ? colors.danger
-        : colors.accent;
-  const fg = variant === 'ghost' ? colors.accent : '#FFFFFF';
+        : accent;
+  const fg = variant === 'ghost' ? accent : colors.background;
   return (
     <Pressable
       accessibilityRole="button"
@@ -36,7 +34,7 @@ export function Button({ label, variant = 'primary', disabled, style, ...rest }:
       ]}
       {...rest}
     >
-      <Text style={{ color: fg, textAlign: 'center' }}>{label}</Text>
+      <Text variant="label" style={{ color: fg, textAlign: 'center' }}>{label}</Text>
     </Pressable>
   );
 }
@@ -44,8 +42,10 @@ export function Button({ label, variant = 'primary', disabled, style, ...rest }:
 const styles = StyleSheet.create({
   base: {
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 2,
+    paddingVertical: spacing.sm + 3,
     borderRadius: radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.line,
     minHeight: 44,
     justifyContent: 'center',
   },

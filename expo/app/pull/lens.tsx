@@ -23,7 +23,6 @@ export default function LensScreen() {
 
   return (
     <View style={styles.root}>
-      <Text variant="title" style={styles.title}>Choose a topic</Text>
       <Text muted style={styles.sub}>What do you want to ask the card?</Text>
 
       <View style={{ gap: spacing.sm }}>
@@ -38,8 +37,7 @@ export default function LensScreen() {
             style={({ pressed }) => [styles.row, pressed && { opacity: 0.6 }]}
           >
             <Panel>
-              <Text>{l.label}</Text>
-              <Text variant="caption" muted>{l.primaryAspect} · {l.secondaryAspect}</Text>
+              <Text variant="display">{l.label}</Text>
             </Panel>
           </Pressable>
         ))}
@@ -49,8 +47,7 @@ export default function LensScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, padding: spacing.md, backgroundColor: colors.bg },
-  title: { marginBottom: spacing.xs },
+  root: { flex: 1, padding: spacing.md, backgroundColor: colors.background },
   sub: { marginBottom: spacing.md },
   row: {},
 });
