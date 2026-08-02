@@ -11,6 +11,7 @@ import { StyleSheet, View } from 'react-native';
 import { Button } from '@/src/ui/Button';
 import { Panel } from '@/src/ui/Panel';
 import { Text } from '@/src/ui/Text';
+import { useClock } from '@/src/ui/useClock';
 import { colors, spacing } from '@/src/ui/tokens';
 import { WorldView } from '@/src/render/WorldView';
 import {
@@ -30,8 +31,9 @@ export default function RoadScreen() {
   const bankedArrivals = useStore((s) => s.journey.bankedArrivals);
   const waymark = useStore(selectCurrentWaymark);
   const accent = useStore(selectCharacterAccent);
-  const daypart = useStore(selectDaypart);
-  const progress = useStore(selectWalkProgress);
+  const now = useClock();
+  const daypart = selectDaypart(now);
+  const progress = selectWalkProgress(journey, now);
 
   // Tick on focus / mount to credit arrivals.
   useEffect(() => {
@@ -75,7 +77,7 @@ export default function RoadScreen() {
             />
           ) : (
             <Text variant="caption" muted style={{ marginTop: spacing.md }}>
-              {`Next arrival in ${formatRemaining(journey.arrivalAt - Date.now())}`}
+              {`Next arrival in ${formatRemaining(journey.arrivalAt - now)}`}
             </Text>
           )}
         </Panel>
