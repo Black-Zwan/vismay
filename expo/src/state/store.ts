@@ -17,6 +17,7 @@ import type {
   AppState,
   ChronicleEntry,
   ClockGuard,
+  JourneyState,
   MirrorState,
   Phase,
   Settings,
@@ -452,12 +453,12 @@ function getAppState(s: StoreState): AppState {
 }
 
 /** Convenience selector helpers (pure, no React). */
-export function selectWalkProgress(s: StoreState): number {
-  return walkProgress(s.journey, Date.now());
+export function selectWalkProgress(journey: JourneyState, now: number): number {
+  return walkProgress(journey, now);
 }
 
-export function selectDaypart(s: StoreState): Daypart {
-  return daypartFromTimestamp(Date.now());
+export function selectDaypart(now: number): Daypart {
+  return daypartFromTimestamp(now);
 }
 
 export function selectCurrentWaymark(s: StoreState) {
