@@ -6,7 +6,7 @@
 
 import { router } from 'expo-router';
 import React from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 
 import { Button } from '@/src/ui/Button';
 import { Panel } from '@/src/ui/Panel';
@@ -14,29 +14,27 @@ import { Text } from '@/src/ui/Text';
 import { colors, spacing } from '@/src/ui/tokens';
 import { useStore } from '@/src/state/store';
 import { getCard } from '@/src/content/cards';
-import { getWaymark } from '@/src/content/waymarks';
 import { nextWaymarkIndex, waymarkAt } from '@/src/content/waymarks';
 
 export default function CloseScreen() {
   const closePull = useStore((s) => s.closePull);
-  const chronicle = useStore((s) => s.chronicle);
+  const pullDraft = useStore((s) => s.pullDraft);
   const journey = useStore((s) => s.journey);
 
-  const latest = chronicle[0];
-  const card = latest ? getCard(latest.cardId) : undefined;
-  const wm = latest ? getWaymark(latest.waymarkId) : undefined;
+  const card = pullDraft ? getCard(pullDraft.cardId) : undefined;
+  const wm = waymarkAt(journey.waymarkIndex);
   const nextWm = waymarkAt(nextWaymarkIndex(journey.waymarkIndex));
-  const remainingBanked = journey.bankedArrivals;
+  const remainingBanked = Math.max(0, journey.bankedArrivals - 1);
 
   return (
     <ScrollView style={styles.root} contentContainerStyle={{ padding: spacing.md, gap: spacing.md }}>
       <Text variant="title">Departure</Text>
 
-      {latest ? (
+      {pullDraft ? (
         <Panel>
-          <Text variant="caption" muted>{`Day ${latest.dayIndex}`}</Text>
-          <Text>{wm?.name ?? 'Waymark'} — {card?.name ?? 'Card'}</Text>
-          <Text style={{ marginTop: spacing.sm }}>{latest.departText}</Text>
+          <Text variant="caption" muted>{`Day ${journey.dayIndex + 1}`}</Text>
+          <Text>{wm.name} — {card?.name ?? 'Card'}</Text>
+          <Text style={{ marginTop: spacing.sm }}>{wm.departText}</Text>
         </Panel>
       ) : null}
 

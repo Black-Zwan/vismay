@@ -3,10 +3,12 @@
  */
 
 import { useLocalSearchParams } from 'expo-router';
-import React from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import React, { useState } from 'react';
+import { Modal, ScrollView, StyleSheet, View } from 'react-native';
 
+import { Button } from '@/src/ui/Button';
 import { Panel } from '@/src/ui/Panel';
+import { PassageText } from '@/src/ui/PassageText';
 import { Text } from '@/src/ui/Text';
 import { colors, spacing } from '@/src/ui/tokens';
 import { useStore } from '@/src/state/store';
@@ -18,6 +20,7 @@ import { getCurio } from '@/src/content/curios';
 export default function EntryScreen() {
   const { entryId } = useLocalSearchParams<{ entryId: string }>();
   const entry = useStore((s) => s.chronicle.find((e) => e.id === entryId));
+  const [cardOpen, setCardOpen] = useState(false);
 
   if (!entry) {
     return (
@@ -32,6 +35,8 @@ export default function EntryScreen() {
   const card = getCard(entry.cardId);
   const wm = getWaymark(entry.waymarkId);
   const lens = getLens(entry.lensId);
+  const lensLabel = `${lens?.glyph ?? ''} ${lens?.label ?? 'Lens'}`.trim();
+  const cardName = card?.name ?? 'Card';
 
   return (
     <ScrollView style={styles.root} contentContainerStyle={{ padding: spacing.md, gap: spacing.md }}>
@@ -48,12 +53,23 @@ export default function EntryScreen() {
 
       <Panel>
         <Text variant="caption" muted>Opener</Text>
-        <Text style={{ marginTop: 4 }}>{entry.openerText}</Text>
+        <PassageText
+          text={entry.openerText}
+          lensLabel={lensLabel}
+          cardName={cardName}
+          style={{ marginTop: 4 }}
+        />
       </Panel>
 
       <Panel>
-        <Text variant="caption" muted>Reading</Text>
-        <Text style={{ marginTop: 4 }}>{entry.answerText}</Text>
+        <Text variant="caption" muted>Answer</Text>
+        <PassageText
+          text={entry.answerText}
+          lensLabel={lensLabel}
+          cardName={cardName}
+          onCardPress={() => setCardOpen(true)}
+          style={{ marginTop: 4 }}
+        />
       </Panel>
 
       <Panel>
@@ -72,6 +88,30 @@ export default function EntryScreen() {
           </View>
         </Panel>
       ) : null}
+
+      <Modal
+        animationType="fade"
+        transparent
+        visible={cardOpen}
+        onRequestClose={() => setCardOpen(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <Panel style={[styles.cardModal, { borderColor: card?.accentHex ?? colors.accent }]}>
+            <Text variant="caption" muted>{card?.numeral ?? ''}</Text>
+            <Text variant="title">{cardName}</Text>
+            <Text muted style={{ marginTop: spacing.xs }}>{card?.epigraph ?? ''}</Text>
+            <Text style={{ marginTop: spacing.md }}>
+              {card?.readings[entry.lensId] ?? 'TODO: copy'}
+            </Text>
+            <Button
+              label="Close"
+              variant="ghost"
+              onPress={() => setCardOpen(false)}
+              style={{ marginTop: spacing.md }}
+            />
+          </Panel>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -79,4 +119,11 @@ export default function EntryScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
+  modalBackdrop: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: spacing.lg,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+  },
+  cardModal: { borderWidth: 2 },
 });

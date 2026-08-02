@@ -39,6 +39,7 @@ import {
   walkProgress,
 } from '@/src/core/leg';
 import { ASPECT_IDS, emptyAspects, scorePull, seedAspectsForElement } from '@/src/core/mirror';
+import { assemblePassage } from '@/src/core/passage';
 import { daypartFromTimestamp } from '@/src/core/time';
 import type { Daypart } from '@/src/core/time';
 import { makeId } from '@/src/core/ids';
@@ -46,6 +47,7 @@ import { DEFAULT_CHARACTER_ID, getCharacter } from '@/src/content/characters';
 import { DEFAULT_SIGN_ID, getSign } from '@/src/content/signs';
 import { getCard, pickCardForPull } from '@/src/content/cards';
 import { getLens } from '@/src/content/lenses';
+import { ANSWERS, OPENERS } from '@/src/content/passages';
 import { getWaymark, nextWaymarkIndex, waymarkAt } from '@/src/content/waymarks';
 
 /** Transient pull-in-progress data (not persisted; rebuilt from phase if needed). */
@@ -307,6 +309,15 @@ export const useStore = create<StoreState>((set, get) => ({
   finishReading: () => {
     const state = get();
     if (state.phase !== 'reading' || !state.pullDraft) return;
+    set({ phase: 'walk' });
+    void persistState(getAppState(get()), get().clockGuard);
+  },
+
+  closePull: () => {
+    const state = get();
+    if (state.phase !== 'walk' && state.phase !== 'done') return;
+    if (!state.pullDraft) return;
+    const now = Date.now();
     const draft = state.pullDraft;
     const lens = getLens(draft.lensId);
     const card = getCard(draft.cardId);
@@ -315,45 +326,35 @@ export const useStore = create<StoreState>((set, get) => ({
       return;
     }
 
-    // Score the pull.
-    const before = state.mirror.aspects;
-    const after = scorePull(before, lens, card);
     const wm = waymarkAt(state.journey.waymarkIndex);
+    const entryDay = state.journey.dayIndex + 1;
+    const templateIndex = state.journey.dayIndex;
+    const passage = assemblePassage(
+      OPENERS[templateIndex % OPENERS.length],
+      ANSWERS[templateIndex % ANSWERS.length],
+      {
+        day: entryDay,
+        place: wm.name,
+        epigraph: card.epigraph,
+      },
+    );
     const entry: ChronicleEntry = {
       id: makeId('entry'),
-      dayIndex: state.journey.dayIndex,
+      dayIndex: entryDay,
       waymarkId: wm.id,
-      cardId: draft.cardId,
-      lensId: draft.lensId,
-      openerText: draft.openerText,
-      answerText: draft.answerText,
+      cardId: card.id,
+      lensId: lens.id,
+      openerText: passage.openerText,
+      answerText: passage.answerText,
       departText: wm.departText,
       curioIds: [],
-      createdAt: Date.now(),
+      createdAt: now,
     };
-
     const recentPulls = [
-      { cardId: draft.cardId, lensId: draft.lensId, at: Date.now() },
+      { cardId: card.id, lensId: lens.id, at: now },
       ...state.mirror.recentPulls,
     ].slice(0, 10);
-
-    set({
-      phase: 'walk',
-      chronicle: [entry, ...state.chronicle],
-      mirror: {
-        ...state.mirror,
-        aspects: after,
-        lensHistory: [draft.lensId, ...state.mirror.lensHistory].slice(0, 30),
-        recentPulls,
-      },
-    });
-    void persistState(getAppState(get()), get().clockGuard);
-  },
-
-  closePull: () => {
-    const state = get();
-    if (state.phase !== 'walk' && state.phase !== 'done') return;
-    const now = Date.now();
+    const aspects = scorePull(state.mirror.aspects, lens, card);
 
     // Consume a banked arrival for this pull.
     let journey = consumeBankedArrival(state.journey);
@@ -376,7 +377,18 @@ export const useStore = create<StoreState>((set, get) => ({
     // completes (closePull is called at the end of the walk). So:
     const phase: Phase = journey.bankedArrivals > 0 ? 'arrive' : 'traveling';
 
-    set({ phase, journey, pullDraft: null });
+    set({
+      phase,
+      journey,
+      pullDraft: null,
+      chronicle: [entry, ...state.chronicle],
+      mirror: {
+        ...state.mirror,
+        aspects,
+        lensHistory: [lens.id, ...state.mirror.lensHistory].slice(0, 30),
+        recentPulls,
+      },
+    });
     runNotifyEffect(get(), get().devFastLegs);
     void persistState(getAppState(get()), get().clockGuard);
   },
@@ -394,7 +406,6 @@ export const useStore = create<StoreState>((set, get) => ({
     const journey = {
       ...state.journey,
       bankedArrivals: Math.min(MAX_BANKED_ARRIVALS, state.journey.bankedArrivals + 1),
-      dayIndex: state.journey.dayIndex + 1,
       // Complete the current leg so tick sees an arrival.
       arrivalAt: now,
     };

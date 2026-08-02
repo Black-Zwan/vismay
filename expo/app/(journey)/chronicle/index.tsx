@@ -8,6 +8,7 @@ import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 
 import { Panel } from '@/src/ui/Panel';
 import { Text } from '@/src/ui/Text';
+import { PassageText } from '@/src/ui/PassageText';
 import { colors, spacing } from '@/src/ui/tokens';
 import { useStore } from '@/src/state/store';
 import { getCard } from '@/src/content/cards';
@@ -51,9 +52,15 @@ export default function ChronicleScreen() {
                 <Text variant="caption" muted style={{ marginTop: 2 }}>
                   {lens?.label ?? 'Lens'} · {new Date(item.createdAt).toLocaleDateString()}
                 </Text>
-                <Text variant="caption" muted numberOfLines={2} style={{ marginTop: 4 }}>
-                  {item.answerText}
-                </Text>
+                <PassageText
+                  text={item.answerText}
+                  lensLabel={`${lens?.glyph ?? ''} ${lens?.label ?? 'Lens'}`.trim()}
+                  cardName={card?.name ?? 'Card'}
+                  variant="caption"
+                  muted
+                  numberOfLines={2}
+                  style={{ marginTop: 4 }}
+                />
               </Panel>
             </Pressable>
           );
