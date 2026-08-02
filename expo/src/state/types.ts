@@ -66,6 +66,7 @@ export interface AppState {
   chronicle: ChronicleEntry[];
   mirror: MirrorState;
   settings: Settings;
+  devOffsetMs: number;
   schemaVersion: number;
 }
 

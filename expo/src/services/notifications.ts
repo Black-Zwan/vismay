@@ -10,14 +10,15 @@
  */
 
 import * as Notifications from 'expo-notifications';
+import { Platform } from 'react-native';
 import type { AppState } from '@/src/state/types';
-import { legDurationMs } from '@/src/core/leg';
 
 const ARRIVAL_NOTIF_ID = 'vismay_arrival';
 const WEEKLY_NOTIF_ID = 'vismay_weekly';
 
 /** Configure how incoming notifications present when the app is foregrounded. */
 export function configureNotifications(): void {
+  if (Platform.OS === 'web') return;
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
       shouldShowAlert: true,
@@ -31,6 +32,7 @@ export function configureNotifications(): void {
 
 /** Request notification permissions (iOS prompt, Android no-op-ish). Returns granted bool. */
 export async function requestNotificationPermission(): Promise<boolean> {
+  if (Platform.OS === 'web') return false;
   const { status: existing } = await Notifications.getPermissionsAsync();
   if (existing === 'granted') return true;
   const { status } = await Notifications.requestPermissionsAsync();
@@ -43,6 +45,7 @@ export async function requestNotificationPermission(): Promise<boolean> {
  * schedules fresh. Respects settings toggles.
  */
 export async function rescheduleNotifications(state: AppState, devFastLegs: boolean): Promise<void> {
+  if (Platform.OS === 'web') return;
   await Notifications.cancelAllScheduledNotificationsAsync();
 
   if (!state.onboarded) return;
