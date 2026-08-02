@@ -17,8 +17,6 @@ export default function MirrorScreen() {
 
   return (
     <ScrollView style={styles.root} contentContainerStyle={{ padding: spacing.md, gap: spacing.md }}>
-      <Text variant="title">Mirror</Text>
-
       <Panel>
         <Text variant="label" muted>Aspects</Text>
         <View style={{ marginTop: spacing.sm, gap: spacing.sm }}>

@@ -27,7 +27,6 @@ export default function DrawScreen() {
 
   return (
     <View style={styles.root}>
-      <Text variant="title" style={styles.title}>Draw a card</Text>
       <Text muted style={styles.sub}>Tap the deck.</Text>
 
       <Pressable
@@ -50,7 +49,6 @@ export default function DrawScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, padding: spacing.md, backgroundColor: colors.background, alignItems: 'center' },
-  title: { marginBottom: spacing.xs },
   sub: { marginBottom: spacing.lg },
   deck: {
     width: 140,

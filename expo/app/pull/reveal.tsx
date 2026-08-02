@@ -28,8 +28,6 @@ export default function RevealScreen() {
 
   return (
     <View style={styles.root}>
-      <Text variant="title" style={styles.title}>Your card</Text>
-
       <Pressable
         accessibilityRole="button"
         onPress={() => {
@@ -52,7 +50,6 @@ export default function RevealScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, padding: spacing.md, backgroundColor: colors.background, alignItems: 'center' },
-  title: { marginBottom: spacing.lg },
   card: {
     width: 200,
     height: 280,

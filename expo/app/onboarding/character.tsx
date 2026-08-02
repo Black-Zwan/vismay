@@ -19,7 +19,6 @@ export default function CharacterScreen() {
 
   return (
     <View style={styles.root}>
-      <Text variant="title" style={styles.title}>Choose a character</Text>
       <Text muted style={styles.sub}>Pick one. You can reset later in settings.</Text>
 
       <FlatList
@@ -68,7 +67,6 @@ export default function CharacterScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, padding: spacing.md, backgroundColor: colors.background },
-  title: { marginBottom: spacing.xs },
   sub: { marginBottom: spacing.md },
   row: {
     flexDirection: 'row',

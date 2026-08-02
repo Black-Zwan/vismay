@@ -20,7 +20,6 @@ export default function SignScreen() {
 
   return (
     <View style={styles.root}>
-      <Text variant="title" style={styles.title}>Choose a sign</Text>
       <Text muted style={styles.sub}>Your birth sign shapes the journey.</Text>
 
       <View style={styles.grid}>
@@ -63,7 +62,6 @@ export default function SignScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, padding: spacing.md, backgroundColor: colors.background },
-  title: { marginBottom: spacing.xs },
   sub: { marginBottom: spacing.md },
   grid: {
     flexDirection: 'row',

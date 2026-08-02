@@ -28,8 +28,6 @@ export default function SettingsScreen() {
 
   return (
     <ScrollView style={styles.root} contentContainerStyle={{ padding: spacing.md, gap: spacing.md }}>
-      <Text variant="title">Settings</Text>
-
       <Panel>
         <Toggle
           label="Arrival notifications"

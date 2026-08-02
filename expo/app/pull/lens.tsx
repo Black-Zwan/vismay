@@ -23,7 +23,6 @@ export default function LensScreen() {
 
   return (
     <View style={styles.root}>
-      <Text variant="title" style={styles.title}>Choose a topic</Text>
       <Text muted style={styles.sub}>What do you want to ask the card?</Text>
 
       <View style={{ gap: spacing.sm }}>
@@ -49,7 +48,6 @@ export default function LensScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, padding: spacing.md, backgroundColor: colors.background },
-  title: { marginBottom: spacing.xs },
   sub: { marginBottom: spacing.md },
   row: {},
 });

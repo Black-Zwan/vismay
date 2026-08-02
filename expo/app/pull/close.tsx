@@ -28,8 +28,6 @@ export default function CloseScreen() {
 
   return (
     <ScrollView style={styles.root} contentContainerStyle={{ padding: spacing.md, gap: spacing.md }}>
-      <Text variant="title">Departure</Text>
-
       {pullDraft ? (
         <Panel>
           <Text variant="label" muted>{`Day ${journey.dayIndex + 1}`}</Text>

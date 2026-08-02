@@ -15,8 +15,11 @@ export default function JourneyLayout() {
     <Tabs
       screenOptions={{
         sceneStyle: { backgroundColor: colors.background },
+        tabBarIcon: () => null,
+        tabBarIconStyle: { display: 'none' },
         tabBarActiveTintColor: accent,
         tabBarInactiveTintColor: colors.textMuted,
+        tabBarLabelPosition: 'below-icon',
         tabBarLabelStyle: {
           fontFamily: fonts.semibold,
           fontSize: 11,
@@ -33,7 +36,7 @@ export default function JourneyLayout() {
       }}
     >
       <Tabs.Screen name="road" options={{ title: 'Road' }} />
-      <Tabs.Screen name="chronicle/index" options={{ title: 'Chronicle', href: null }} />
+      <Tabs.Screen name="chronicle" options={{ title: 'Chronicle', headerShown: false }} />
       <Tabs.Screen
         name="mirror"
         options={{ title: 'Mirror' }}
