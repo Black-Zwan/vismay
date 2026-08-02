@@ -32,14 +32,14 @@ export default function CloseScreen() {
 
       {pullDraft ? (
         <Panel>
-          <Text variant="caption" muted>{`Day ${journey.dayIndex + 1}`}</Text>
+          <Text variant="label" muted>{`Day ${journey.dayIndex + 1}`}</Text>
           <Text>{wm.name} — {card?.name ?? 'Card'}</Text>
           <Text style={{ marginTop: spacing.sm }}>{wm.departText}</Text>
         </Panel>
       ) : null}
 
       <Panel>
-        <Text variant="caption" muted>Next waymark</Text>
+        <Text variant="label" muted>Next waymark</Text>
         <Text style={{ marginTop: 4 }}>{nextWm.name}</Text>
         {remainingBanked > 0 ? (
           <Text variant="caption" muted style={{ marginTop: spacing.sm }}>
@@ -64,5 +64,5 @@ export default function CloseScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
+  root: { flex: 1, backgroundColor: colors.background },
 });

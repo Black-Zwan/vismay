@@ -2,13 +2,15 @@ import React from 'react';
 import type { TextStyle } from 'react-native';
 
 import { passageSegments } from '@/src/core/passage';
+import { useAccentColor } from '@/src/ui/AccentColor';
 import { Text, type TextPropsExtended } from '@/src/ui/Text';
-import { colors } from '@/src/ui/tokens';
+import { colors, fonts } from '@/src/ui/tokens';
 
 interface PassageTextProps extends Omit<TextPropsExtended, 'children'> {
   text: string;
   lensLabel: string;
   cardName: string;
+  accentHex?: string;
   onCardPress?: () => void;
 }
 
@@ -16,10 +18,12 @@ export function PassageText({
   text,
   lensLabel,
   cardName,
+  accentHex,
   onCardPress,
   ...textProps
 }: PassageTextProps) {
   const segments = passageSegments(text, lensLabel, cardName);
+  const currentAccent = useAccentColor();
 
   return (
     <Text {...textProps}>
@@ -32,7 +36,7 @@ export function PassageText({
             key={`${segment.kind}-${index}`}
             accessibilityRole={isCard && onCardPress ? 'button' : undefined}
             onPress={isCard ? onCardPress : undefined}
-            style={chipStyle}
+            style={[chipStyle, { color: accentHex ?? currentAccent }]}
           >
             {segment.text}
           </Text>
@@ -43,8 +47,7 @@ export function PassageText({
 }
 
 const chipStyle: TextStyle = {
-  color: colors.accent,
   backgroundColor: colors.line,
   borderRadius: 4,
-  fontWeight: '600',
+  fontFamily: fonts.semibold,
 };

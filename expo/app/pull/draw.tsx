@@ -7,6 +7,7 @@ import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Text } from '@/src/ui/Text';
+import { useAccentColor } from '@/src/ui/AccentColor';
 import { colors, spacing } from '@/src/ui/tokens';
 import { useStore } from '@/src/state/store';
 
@@ -14,6 +15,7 @@ export default function DrawScreen() {
   const drawCard = useStore((s) => s.drawCard);
   const pullDraft = useStore((s) => s.pullDraft);
   const phase = useStore((s) => s.phase);
+  const accent = useAccentColor();
 
   if (phase !== 'draw' || !pullDraft) {
     return (
@@ -34,23 +36,28 @@ export default function DrawScreen() {
           drawCard();
           router.push('/pull/reveal');
         }}
-        style={({ pressed }) => [styles.deck, pressed && { opacity: 0.7 }]}
+        style={({ pressed }) => [
+          styles.deck,
+          { borderColor: accent },
+          pressed && { opacity: 0.72 },
+        ]}
       >
-        <Text style={{ color: '#FFFFFF' }}>Deck</Text>
+        <Text variant="label" style={{ color: accent }}>Deck</Text>
       </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, padding: spacing.md, backgroundColor: colors.bg, alignItems: 'center' },
+  root: { flex: 1, padding: spacing.md, backgroundColor: colors.background, alignItems: 'center' },
   title: { marginBottom: spacing.xs },
   sub: { marginBottom: spacing.lg },
   deck: {
     width: 140,
     height: 200,
     borderRadius: 10,
-    backgroundColor: colors.accent,
+    backgroundColor: colors.surface,
+    borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },

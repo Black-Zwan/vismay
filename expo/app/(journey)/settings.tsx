@@ -7,6 +7,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/src/ui/Button';
 import { Panel } from '@/src/ui/Panel';
+import { useAccentColor } from '@/src/ui/AccentColor';
 import { Text } from '@/src/ui/Text';
 import { colors, spacing } from '@/src/ui/tokens';
 import { useStore } from '@/src/state/store';
@@ -23,6 +24,7 @@ export default function SettingsScreen() {
   const devToggleFastLegs = useStore((s) => s.devToggleFastLegs);
   const devForceDaypart = useStore((s) => s.devForceDaypart);
   const resetAll = useStore((s) => s.resetAll);
+  const accent = useAccentColor();
 
   return (
     <ScrollView style={styles.root} contentContainerStyle={{ padding: spacing.md, gap: spacing.md }}>
@@ -50,7 +52,7 @@ export default function SettingsScreen() {
 
       {devMode ? (
         <Panel>
-          <Text variant="caption" muted>Dev panel</Text>
+          <Text variant="label" muted>Dev panel</Text>
 
           <Button label="Force arrival" onPress={devForceArrival} style={{ marginTop: spacing.sm }} />
           <Button
@@ -60,7 +62,7 @@ export default function SettingsScreen() {
             style={{ marginTop: spacing.sm }}
           />
 
-          <Text variant="caption" muted style={{ marginTop: spacing.md }}>Force daypart</Text>
+          <Text variant="label" muted style={{ marginTop: spacing.md }}>Force daypart</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.xs }}>
             {(['dawn', 'morning', 'noon', 'afternoon', 'dusk', 'night', null] as (Daypart | null)[]).map((p) => {
               const active = DEV_DAYPART_OVERRIDE.current === p;
@@ -70,7 +72,7 @@ export default function SettingsScreen() {
                   onPress={() => devForceDaypart(p)}
                   style={[
                     styles.chip,
-                    { borderColor: active ? colors.accent : colors.line },
+                    { borderColor: active ? accent : colors.line },
                   ]}
                 >
                   <Text variant="caption">{p ?? 'Auto'}</Text>
@@ -92,6 +94,8 @@ export default function SettingsScreen() {
 }
 
 function Toggle({ label, value, onToggle }: { label: string; value: boolean; onToggle: (v: boolean) => void }) {
+  const accent = useAccentColor();
+
   return (
     <Pressable
       accessibilityRole="switch"
@@ -100,7 +104,7 @@ function Toggle({ label, value, onToggle }: { label: string; value: boolean; onT
       style={styles.toggleRow}
     >
       <Text>{label}</Text>
-      <Text style={{ color: value ? colors.ok : colors.inkMuted }}>{value ? 'ON' : 'OFF'}</Text>
+      <Text variant="label" style={{ color: value ? accent : colors.textMuted }}>{value ? 'ON' : 'OFF'}</Text>
     </Pressable>
   );
 }
@@ -110,7 +114,7 @@ function Divider() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
+  root: { flex: 1, backgroundColor: colors.background },
   toggleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -122,7 +126,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 6,
-    backgroundColor: colors.bgPanel,
+    backgroundColor: colors.surface,
   },
 });
 

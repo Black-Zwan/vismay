@@ -7,7 +7,7 @@ import React, { useState } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/src/ui/Button';
-import { Panel } from '@/src/ui/Panel';
+import { useAccentColor } from '@/src/ui/AccentColor';
 import { Text } from '@/src/ui/Text';
 import { colors, spacing } from '@/src/ui/tokens';
 import { CHARACTERS } from '@/src/content/characters';
@@ -15,7 +15,7 @@ import { useStore } from '@/src/state/store';
 
 export default function CharacterScreen() {
   const [selected, setSelected] = useState<string | null>(null);
-  const journey = useStore((s) => s.journey);
+  const accent = useAccentColor();
 
   return (
     <View style={styles.root}>
@@ -33,15 +33,15 @@ export default function CharacterScreen() {
               onPress={() => setSelected(item.id)}
               style={({ pressed }) => [
                 styles.row,
-                { borderColor: isSel ? colors.accent : colors.line, opacity: pressed ? 0.6 : 1 },
+                { borderColor: isSel ? accent : colors.line, opacity: pressed ? 0.72 : 1 },
               ]}
             >
-              <View style={[styles.swatch, { backgroundColor: item.accentHex }]} />
+              <View style={styles.swatch} />
               <View style={{ flex: 1 }}>
                 <Text>{item.name}</Text>
                 <Text variant="caption" muted>{item.blurb}</Text>
               </View>
-              {isSel ? <Text style={{ color: colors.accent }}>✓</Text> : null}
+              {isSel ? <Text style={{ color: accent }}>✓</Text> : null}
             </Pressable>
           );
         }}
@@ -62,15 +62,12 @@ export default function CharacterScreen() {
         }}
         style={styles.cta}
       />
-      <Text variant="caption" muted style={styles.current}>
-        {`current: ${journey.characterId}`}
-      </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, padding: spacing.md, backgroundColor: colors.bg },
+  root: { flex: 1, padding: spacing.md, backgroundColor: colors.background },
   title: { marginBottom: spacing.xs },
   sub: { marginBottom: spacing.md },
   row: {
@@ -79,10 +76,16 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderRadius: 10,
     borderWidth: StyleSheet.hairlineWidth,
-    backgroundColor: colors.bgPanel,
+    backgroundColor: colors.surface,
     gap: spacing.md,
   },
-  swatch: { width: 28, height: 28, borderRadius: 14 },
+  swatch: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.surfaceRaised,
+    borderColor: colors.line,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
   cta: { marginTop: spacing.md },
-  current: { marginTop: spacing.sm, textAlign: 'center' },
 });

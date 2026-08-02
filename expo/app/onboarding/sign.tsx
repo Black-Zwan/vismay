@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/src/ui/Button';
+import { useAccentColor } from '@/src/ui/AccentColor';
 import { Text } from '@/src/ui/Text';
 import { colors, spacing } from '@/src/ui/tokens';
 import { SIGNS } from '@/src/content/signs';
@@ -15,6 +16,7 @@ import { useStore } from '@/src/state/store';
 export default function SignScreen() {
   const [selected, setSelected] = useState<string | null>(null);
   const completeOnboarding = useStore((s) => s.completeOnboarding);
+  const accent = useAccentColor();
 
   return (
     <View style={styles.root}>
@@ -31,10 +33,10 @@ export default function SignScreen() {
               onPress={() => setSelected(s.id)}
               style={({ pressed }) => [
                 styles.cell,
-                { borderColor: isSel ? colors.accent : colors.line, opacity: pressed ? 0.6 : 1 },
+                { borderColor: isSel ? accent : colors.line, opacity: pressed ? 0.72 : 1 },
               ]}
             >
-              <Text style={{ fontSize: 24 }}>{s.glyph}</Text>
+              <Text style={{ fontSize: 24 }}>{`${s.glyph}\uFE0E`}</Text>
               <Text>{s.name}</Text>
               <Text variant="caption" muted>{s.dates}</Text>
               <Text variant="caption" muted>{s.element}</Text>
@@ -60,7 +62,7 @@ export default function SignScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, padding: spacing.md, backgroundColor: colors.bg },
+  root: { flex: 1, padding: spacing.md, backgroundColor: colors.background },
   title: { marginBottom: spacing.xs },
   sub: { marginBottom: spacing.md },
   grid: {
@@ -73,7 +75,7 @@ const styles = StyleSheet.create({
     width: '31.5%',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.line,
-    backgroundColor: colors.bgPanel,
+    backgroundColor: colors.surface,
     borderRadius: 10,
     padding: spacing.sm,
     alignItems: 'center',

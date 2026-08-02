@@ -59,7 +59,7 @@ export default function RoadScreen() {
       <View style={styles.footer}>
         <Panel>
           <Text variant="caption" muted>{`Day ${journey.dayIndex}`}</Text>
-          <Text>{character?.name ?? 'Character'} {sign ? `${sign.glyph}` : ''}</Text>
+          <Text>{character?.name ?? 'Character'} {sign ? `${sign.glyph}\uFE0E` : ''}</Text>
           <Text variant="caption" muted style={{ marginTop: 4 }}>
             {arrived
               ? `Arrived at ${waymark.name}. ${bankedArrivals > 1 ? `${bankedArrivals} draws waiting.` : ''}`
@@ -97,7 +97,7 @@ function formatRemaining(ms: number): string {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
+  root: { flex: 1, backgroundColor: colors.background },
   world: { flex: 1 },
   footer: { padding: spacing.md },
 });

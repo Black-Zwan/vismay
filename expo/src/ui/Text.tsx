@@ -1,12 +1,8 @@
-/**
- * Plain Text primitive. No styling beyond tokens — design pass comes later.
- */
-
 import React from 'react';
 import { Text as RNText, type TextProps } from 'react-native';
-import { colors, type } from '@/src/ui/tokens';
+import { colors, typography } from '@/src/ui/tokens';
 
-type Variant = keyof typeof type;
+type Variant = keyof typeof typography;
 
 export interface TextPropsExtended extends TextProps {
   variant?: Variant;
@@ -17,8 +13,8 @@ export function Text({ variant = 'body', muted, style, ...rest }: TextPropsExten
   return (
     <RNText
       style={[
-        type[variant],
-        { color: muted ? colors.inkMuted : colors.ink },
+        typography[variant],
+        { color: muted ? colors.textMuted : colors.text },
         style,
       ]}
       {...rest}

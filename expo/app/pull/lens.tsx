@@ -38,8 +38,7 @@ export default function LensScreen() {
             style={({ pressed }) => [styles.row, pressed && { opacity: 0.6 }]}
           >
             <Panel>
-              <Text>{l.label}</Text>
-              <Text variant="caption" muted>{l.primaryAspect} · {l.secondaryAspect}</Text>
+              <Text variant="display">{l.label}</Text>
             </Panel>
           </Pressable>
         ))}
@@ -49,7 +48,7 @@ export default function LensScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, padding: spacing.md, backgroundColor: colors.bg },
+  root: { flex: 1, padding: spacing.md, backgroundColor: colors.background },
   title: { marginBottom: spacing.xs },
   sub: { marginBottom: spacing.md },
   row: {},

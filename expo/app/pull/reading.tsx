@@ -32,17 +32,17 @@ export default function ReadingScreen() {
 
   return (
     <ScrollView style={styles.root} contentContainerStyle={{ padding: spacing.md, gap: spacing.md }}>
-      <Text variant="title">{card?.name ?? 'Card'}</Text>
+      <Text variant="display">{card?.name ?? 'Card'}</Text>
       <Text muted>{lens?.label ?? ''} · {card?.numeral ?? ''}</Text>
 
       <Panel>
-        <Text variant="caption" muted>Opener</Text>
+        <Text variant="label" muted>Opener</Text>
         <Text style={{ marginTop: 4 }}>{pullDraft.openerText}</Text>
       </Panel>
 
       <Panel>
-        <Text variant="caption" muted>Reading</Text>
-        <Text style={{ marginTop: 4 }}>{pullDraft.answerText}</Text>
+        <Text variant="label" muted>Reading</Text>
+        <Text variant="reading" style={{ marginTop: 4 }}>{pullDraft.answerText}</Text>
       </Panel>
 
       <Button
@@ -57,5 +57,5 @@ export default function ReadingScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
+  root: { flex: 1, backgroundColor: colors.background },
 });
