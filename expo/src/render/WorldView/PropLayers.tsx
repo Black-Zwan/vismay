@@ -96,6 +96,7 @@ type PropLayersProps = {
   daypart: Daypart;
   waymarkId: string;
   accentHex: string;
+  tintHex?: string;
   walking: boolean;
   children: React.ReactNode;
 };
@@ -104,11 +105,12 @@ export function PropLayers({
   daypart,
   waymarkId,
   accentHex,
+  tintHex,
   walking,
   children,
 }: PropLayersProps) {
   const region = Math.max(0, WAYMARKS.findIndex((waymark) => waymark.id === waymarkId));
-  const palette = useEasedPropPalette(daypart, accentHex);
+  const palette = useEasedPropPalette(daypart, accentHex, tintHex);
 
   return (
     <View style={styles.root}>
@@ -320,8 +322,15 @@ function Pine({ height, fill }: { height: number; fill: string }) {
   );
 }
 
-function useEasedPropPalette(daypart: Daypart, accentHex: string): PropPalette {
-  const target = useMemo(() => makePropPalette(daypart, accentHex), [accentHex, daypart]);
+function useEasedPropPalette(
+  daypart: Daypart,
+  accentHex: string,
+  tintHex?: string,
+): PropPalette {
+  const target = useMemo(
+    () => makePropPalette(daypart, accentHex, tintHex),
+    [accentHex, daypart, tintHex],
+  );
   const currentRef = useRef<PropPalette>(target);
   const [current, setCurrent] = useState<PropPalette>(target);
 
@@ -346,13 +355,16 @@ function useEasedPropPalette(daypart: Daypart, accentHex: string): PropPalette {
   return current;
 }
 
-function makePropPalette(daypart: Daypart, accentHex: string): PropPalette {
+function makePropPalette(daypart: Daypart, accentHex: string, tintHex?: string): PropPalette {
   const sky = DAYPARTS[daypart].sky.map(hx) as [Rgb, Rgb, Rgb];
-  const far = mix(mix(sky[1], DEFAULT_PLANE, 0.5), sky[2], 0.28);
+  const tint = tintHex ? hx(tintHex) : null;
+  const plane = tint ? mix(DEFAULT_PLANE, tint, 0.45) : DEFAULT_PLANE;
+  const tintedSky = tint ? sky.map((color) => mix(color, tint, 0.45)) as [Rgb, Rgb, Rgb] : sky;
+  const far = mix(mix(tintedSky[1], plane, 0.5), tintedSky[2], 0.28);
   return {
     far,
-    near: sink(DEFAULT_PLANE, 0.38),
-    foreground: sink(DEFAULT_PLANE, 0.68),
+    near: sink(plane, 0.38),
+    foreground: sink(plane, 0.68),
     accent: hx(accentHex),
   };
 }

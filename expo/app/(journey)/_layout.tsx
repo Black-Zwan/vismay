@@ -5,6 +5,7 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAccentColor } from '@/src/ui/AccentColor';
 import { DebugBar } from '@/src/ui/DebugBar';
 import { NavigationTitle } from '@/src/ui/NavigationTitle';
@@ -12,6 +13,8 @@ import { colors, fonts } from '@/src/ui/tokens';
 
 export default function JourneyLayout() {
   const accent = useAccentColor();
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = Math.max(56, Math.min(64, insets.bottom + 30));
 
   return (
     <View style={styles.root}>
@@ -25,10 +28,14 @@ export default function JourneyLayout() {
         tabBarLabelPosition: 'below-icon',
         tabBarLabelStyle: {
           fontFamily: fonts.semibold,
-          fontSize: 11,
-          letterSpacing: 0.8,
+          fontSize: 18,
+          lineHeight: 22,
+          letterSpacing: 1.1,
         },
         tabBarStyle: {
+          height: tabBarHeight,
+          paddingTop: 2,
+          paddingBottom: insets.bottom,
           backgroundColor: colors.surface,
           borderTopColor: colors.line,
         },
@@ -38,16 +45,24 @@ export default function JourneyLayout() {
         headerShown: true,
       }}
       >
-        <Tabs.Screen name="road" options={{ title: 'Road' }} />
+        <Tabs.Screen name="road" options={{ title: 'Road', headerShown: false }} />
         <Tabs.Screen name="chronicle" options={{ title: 'Chronicle', headerShown: false }} />
         <Tabs.Screen name="mirror" options={{ title: 'Mirror' }} />
         <Tabs.Screen name="settings" options={{ title: 'Settings' }} />
       </Tabs>
-      <DebugBar />
+      <View style={[styles.debugBar, { bottom: tabBarHeight }]}>
+        <DebugBar />
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.background },
+  debugBar: {
+    position: 'absolute',
+    right: 0,
+    left: 0,
+    zIndex: 100,
+  },
 });

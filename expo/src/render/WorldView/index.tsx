@@ -3,7 +3,6 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import {
-  BUFFER_ASPECT_RATIO,
   createWorldRenderer,
   type WorldRenderer,
 } from './renderer';
@@ -17,18 +16,21 @@ export function WorldView({
   daypart,
   waymarkId,
   walkProgress,
+  walking: walkingOverride,
   characterId,
   accentHex,
+  tintHex,
 }: WorldViewProps) {
   const rendererRef = useRef<WorldRenderer | null>(null);
-  const inputsRef = useRef({ daypart, waymarkId, walkProgress, accentHex });
+  const inputsRef = useRef({ daypart, waymarkId, walkProgress, accentHex, tintHex });
   const [rendererFailed, setRendererFailed] = useState(false);
+  const walking = walkingOverride ?? walkProgress < 1;
 
-  inputsRef.current = { daypart, waymarkId, walkProgress, accentHex };
+  inputsRef.current = { daypart, waymarkId, walkProgress, accentHex, tintHex };
 
   useEffect(() => {
     rendererRef.current?.update(inputsRef.current);
-  }, [accentHex, daypart, walkProgress, waymarkId]);
+  }, [accentHex, daypart, tintHex, walkProgress, waymarkId]);
 
   useEffect(() => () => rendererRef.current?.dispose(), []);
 
@@ -57,14 +59,15 @@ export function WorldView({
       <PropLayers
         daypart={daypart}
         waymarkId={waymarkId}
-        accentHex={accentHex}
-        walking={walkProgress < 1}
+        accentHex={tintHex ?? accentHex}
+        tintHex={tintHex}
+        walking={walking}
       >
         <View style={styles.character}>
           <CharacterSprite
             characterId={characterId}
-            accentHex={accentHex}
-            walking={walkProgress < 1}
+            accentHex={tintHex ?? accentHex}
+            walking={walking}
           />
         </View>
       </PropLayers>
@@ -74,8 +77,8 @@ export function WorldView({
 
 const styles = StyleSheet.create({
   root: {
-    flex: 1,
-    aspectRatio: BUFFER_ASPECT_RATIO,
+    width: '100%',
+    height: '100%',
     overflow: 'hidden',
     backgroundColor: '#0c0f24',
   },

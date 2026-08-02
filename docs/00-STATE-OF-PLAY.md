@@ -10,7 +10,7 @@ Before this repo existed, the product was prototyped as a single-file React web 
 
 ## What exists and works
 
-- **Navigation** — Expo Router, onboarding → journey tabs → pull modal stack
+- **Navigation** — Expo Router, onboarding → journey tabs; the pull ritual renders in place on Road
 - **State** — Zustand store, types exactly as specified, no drift
 - **Persistence** — single versioned AsyncStorage key, 400ms debounce, swappable `StorageBackend` interface, migration hook on `schemaVersion`. This layer is good; leave it alone.
 - **Notifications** — local scheduling at `arrivalAt`, cancel/reschedule on state change, settings toggles honored
