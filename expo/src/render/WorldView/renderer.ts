@@ -274,7 +274,6 @@ export function createWorldRenderer(
   const framebuffer = gl.createFramebuffer();
   if (!framebuffer) throw new Error('Unable to create WorldView framebuffer.');
 
-  const defaultFramebuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null;
   gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
   gl.framebufferTexture2D(
     gl.FRAMEBUFFER,
@@ -336,7 +335,10 @@ export function createWorldRenderer(
     gl.uniform1f(worldLocations.water, current.water);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
 
-    gl.bindFramebuffer(gl.FRAMEBUFFER, defaultFramebuffer);
+    // Expo GL's native bridge does not implement
+    // getParameter(FRAMEBUFFER_BINDING). Binding null is the portable WebGL
+    // contract and Expo maps it to the GLView's presentation framebuffer.
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
     gl.useProgram(displayProgram);
     bindQuad(gl, quad, displayLocations.position, displayLocations.uv);
