@@ -62,7 +62,7 @@ export default function SettingsScreen() {
 
           <Text variant="caption" muted style={{ marginTop: spacing.md }}>Force daypart</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.xs }}>
-            {(['dawn', 'day', 'dusk', 'night', null] as (Daypart | null)[]).map((p) => {
+            {(['dawn', 'morning', 'noon', 'afternoon', 'dusk', 'night', null] as (Daypart | null)[]).map((p) => {
               const active = DEV_DAYPART_OVERRIDE.current === p;
               return (
                 <Pressable

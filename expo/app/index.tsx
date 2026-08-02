@@ -22,5 +22,5 @@ export default function Gate() {
   if (!onboarded) {
     return <Redirect href="/onboarding/character" />;
   }
-  return <Redirect href="/(journey)" />;
+  return <Redirect href="/(journey)/road" />;
 }

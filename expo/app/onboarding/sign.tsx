@@ -11,10 +11,10 @@ import { Text } from '@/src/ui/Text';
 import { colors, spacing } from '@/src/ui/tokens';
 import { SIGNS } from '@/src/content/signs';
 import { useStore } from '@/src/state/store';
-import { completeOnboarding } from '@/src/state/store';
 
 export default function SignScreen() {
   const [selected, setSelected] = useState<string | null>(null);
+  const completeOnboarding = useStore((s) => s.completeOnboarding);
 
   return (
     <View style={styles.root}>
@@ -51,7 +51,7 @@ export default function SignScreen() {
           const characterId = state.journey.characterId;
           if (!selected || !characterId) return;
           completeOnboarding(characterId, selected);
-          router.replace('/(journey)');
+          router.replace('/(journey)/road');
         }}
         style={styles.cta}
       />

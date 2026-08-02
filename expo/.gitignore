@@ -40,6 +40,6 @@ yarn-error.*
 
 .rork
 .env
-core
+core.*
 node_modules
 .expo

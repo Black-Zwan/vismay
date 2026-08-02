@@ -11,12 +11,15 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from '@/src/ui/Text';
 import { colors } from '@/src/ui/tokens';
 import { getWaymark } from '@/src/content/waymarks';
+import type { Daypart } from '@/src/core/time';
 import type { WorldViewProps } from './types';
 
-const DAYPART_BG: Record<string, string> = {
+const DAYPART_BG: Record<Daypart, string> = {
   dawn: '#F3E9DC',
-  day: '#E8EDF2',
-  dusk: '#E2D7C8',
+  morning: '#E8EDF2',
+  noon: '#DDE7F0',
+  afternoon: '#E2D7C8',
+  dusk: '#D4B896',
   night: '#1E2230',
 };
 

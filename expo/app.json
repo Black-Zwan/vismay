@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Once A Day",
-    "slug": "lro5ll5zott9s9cxt6l83",
+    "name": "WONDER",
+    "slug": "wonder",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "rork-app",
+    "scheme": "wonder",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
@@ -15,14 +15,14 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "app.rork.lro5ll5zott9s9cxt6l83"
+      "bundleIdentifier": "app.wonder"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "app.rork.lro5ll5zott9s9cxt6l83"
+      "package": "app.wonder"
     },
     "web": {
       "favicon": "./assets/images/favicon.png"

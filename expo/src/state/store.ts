@@ -41,6 +41,7 @@ import {
 } from '@/src/core/leg';
 import { ASPECT_IDS, crossedThresholds, curioIdForThreshold, scorePull } from '@/src/core/mirror';
 import { daypartFromTimestamp } from '@/src/core/time';
+import type { Daypart } from '@/src/core/time';
 import { makeId } from '@/src/core/ids';
 import { DEFAULT_CHARACTER_ID, getCharacter } from '@/src/content/characters';
 import { DEFAULT_SIGN_ID } from '@/src/content/signs';
@@ -90,7 +91,7 @@ export interface StoreState extends AppState {
   // --- dev panel ---
   devForceArrival: () => void;
   devToggleFastLegs: (on: boolean) => void;
-  devForceDaypart: (part: 'dawn' | 'day' | 'dusk' | 'night' | null) => void;
+  devForceDaypart: (part: Daypart | null) => void;
 }
 
 /** Build the default initial AppState. */
@@ -463,7 +464,7 @@ export function selectWalkProgress(s: StoreState): number {
   return walkProgress(s.journey, Date.now());
 }
 
-export function selectDaypart(s: StoreState): 'dawn' | 'day' | 'dusk' | 'night' {
+export function selectDaypart(s: StoreState): Daypart {
   return daypartFromTimestamp(Date.now());
 }
 
