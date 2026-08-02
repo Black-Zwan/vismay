@@ -1,21 +1,44 @@
 import type { ExpoWebGLRenderingContext } from 'expo-gl';
 
 import { DAYPARTS } from '@/src/content/dayparts';
-import { accentRamp, hx, lift, mix, ramp, sink, type Rgb } from '@/src/core/color';
+import { WAYMARKS } from '@/src/content/waymarks';
+import { hx, lift, mix, ramp, sink, type Rgb } from '@/src/core/color';
 import { BAYER } from '@/src/core/dither';
 import type { Daypart } from '@/src/core/time';
 
 export const BUFFER_WIDTH = 132;
 export const BUFFER_HEIGHT = 254;
+export const BUFFER_ASPECT_RATIO = BUFFER_WIDTH / BUFFER_HEIGHT;
 
-const PALETTE_WIDTH = 32;
 const SKY_STEPS = 14;
 const GROUND_STEPS = 10;
 const PATH_STEPS = 8;
 const COLOR_LERP = 0.045;
+const PALETTE_WIDTH = 41;
+const LEG_SCROLL_DISTANCE = 480;
+const DEFAULT_PLANE = hx('#1e1633');
+const DEFAULT_PATH = hx('#3a2c55');
+const STAR: Rgb = [255, 244, 214];
+const RIVER_WAYMARK_ID = 'grey_river_crossing';
+
+const PALETTE = {
+  sky: 0,
+  ground: SKY_STEPS,
+  path: SKY_STEPS + GROUND_STEPS,
+  far: 32,
+  hill: 33,
+  near: 34,
+  foreground: 35,
+  orbCore: 36,
+  orbEdge: 37,
+  waterDeep: 38,
+  waterLit: 39,
+  star: 40,
+} as const;
 
 export interface RenderInputs {
   daypart: Daypart;
+  waymarkId: string;
   walkProgress: number;
   accentHex: string;
 }
@@ -25,11 +48,15 @@ export interface WorldRenderer {
   dispose(): void;
 }
 
-interface Targets {
-  palette: Float32Array;
+interface PaletteState {
+  sky: [Rgb, Rgb, Rgb];
+  plane: Rgb;
+  path: Rgb;
+  accent: Rgb;
   orb: [number, number];
   orbColor: Rgb;
   stars: number;
+  water: number;
 }
 
 const VERTEX_SHADER = `
@@ -43,6 +70,8 @@ const VERTEX_SHADER = `
   }
 `;
 
+// Literal GLSL translation of Wonder-ArtUpdate-v6.jsx WorldCanvas lines 338–443.
+// Branch order and arithmetic intentionally mirror the source loop.
 const WORLD_FRAGMENT_SHADER = `
   precision highp float;
 
@@ -50,13 +79,18 @@ const WORLD_FRAGMENT_SHADER = `
   uniform sampler2D u_palette;
   uniform sampler2D u_bayer;
   uniform float u_time;
-  uniform float u_progress;
+  uniform float u_scroll;
   uniform vec2 u_orb;
-  uniform vec3 u_orb_color;
   uniform float u_stars;
+  uniform float u_water;
 
+  const float W = 132.0;
+  const float H = 254.0;
   const float HZ = 0.54;
-  const float PALETTE_W = 32.0;
+  const float SKY_N = 14.0;
+  const float G_N = 10.0;
+  const float P_N = 8.0;
+  const float PALETTE_W = 41.0;
 
   float hash2(float x, float y) {
     float n = sin(x * 127.1 + y * 311.7) * 43758.5453;
@@ -79,103 +113,141 @@ const WORLD_FRAGMENT_SHADER = `
     return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
   }
 
-  float bayerThreshold() {
-    vec2 cell = mod(floor(gl_FragCoord.xy), 8.0);
-    return texture2D(u_bayer, (cell + 0.5) / 8.0).r;
+  vec3 paletteColor(float index) {
+    return texture2D(u_palette, vec2((index + 0.5) / PALETTE_W, 0.5)).rgb;
   }
 
-  vec3 ditheredRamp(float offset, float count, float index, float threshold) {
+  float bayerThreshold(vec2 pixel) {
+    vec2 cell = mod(pixel, 8.0);
+    return texture2D(u_bayer, (cell + 0.5) / 8.0).r * (255.0 / 64.0);
+  }
+
+  vec3 ditheredRamp(float offset, float count, float index, float bt) {
     float bounded = clamp(index, 0.0, count - 1.0);
     float chosen = floor(bounded);
-    if (fract(bounded) > threshold) chosen += 1.0;
-    chosen = min(chosen, count - 1.0);
-    return texture2D(u_palette, vec2((offset + chosen + 0.5) / PALETTE_W, 0.5)).rgb;
+    if (bounded - chosen > bt && chosen < count - 1.0) chosen += 1.0;
+    return paletteColor(offset + chosen);
   }
 
   void main() {
     float nx = v_uv.x;
     float ny = 1.0 - v_uv.y;
-    vec2 px = floor(gl_FragCoord.xy);
-    float threshold = bayerThreshold();
-    float sw = u_progress * 10000.0 + u_time * 0.7;
+    vec2 pixel = floor(vec2(nx * W, ny * H));
+    float x = pixel.x;
+    float y = pixel.y;
+    float bt = bayerThreshold(pixel);
+    float sw = u_scroll;
+    vec3 col;
 
-    float skyDrift = sin(nx * 9.0 + u_time * 0.55 + ny * 20.0)
-      * 0.7 * (0.3 + ny);
-    float cloudA = (vnoise(nx * 3.1 + u_time * 0.020, ny * 8.5 + 4.2) - 0.5) * 1.55;
-    float cloudB = (vnoise(nx * 6.2 - u_time * 0.012, ny * 14.0 + 11.7) - 0.5) * 0.85;
+    if (ny < HZ) {
+      // ---- LIVING SKY ----
+      float idx = (ny / HZ) * (SKY_N - 1.0);
+      idx += sin(nx * 9.0 + u_time * 0.55 + ny * 20.0) * 0.7 * (0.3 + ny);
+      idx += (vnoise(nx * 2.6 + u_time * 0.045, ny * 5.2 + 40.4) - 0.5)
+        * 3.2 * max(0.0, 1.0 - abs(ny - 0.34) / 0.34);
+      float band = max(0.0, 1.0 - abs(ny - 0.3) / 0.27);
+      if (band > 0.02) {
+        float cn =
+          vnoise(nx * 5.0 + u_time * 0.015 + sw * 0.00006, ny * 16.0 + 7.3) +
+          0.5 * vnoise(nx * 11.0 - u_time * 0.021 + 3.1, ny * 30.0 + 1.7);
+        idx += (cn / 1.5 - 0.5) * 4.4 * band;
+      }
 
-    vec2 orbDelta = vec2(nx - u_orb.x, (ny - u_orb.y) * 1.55);
-    float orbDistance = length(orbDelta);
-    float orbLight = max(0.0, 0.42 - orbDistance) * 9.0;
-    float skyIndex = (ny / HZ) * 13.0 + skyDrift + cloudA + cloudB + orbLight;
-    vec3 color = ditheredRamp(0.0, 14.0, skyIndex, threshold);
+      // sun / moon at the hour's position
+      float dxs = nx - u_orb.x;
+      float dys = (ny - u_orb.y) * 1.55;
+      float ds = sqrt(dxs * dxs + dys * dys);
+      idx += max(0.0, 0.42 - ds) * 9.0;
+      idx = clamp(idx, 0.0, SKY_N - 1.0);
+      col = ditheredRamp(0.0, SKY_N, idx, bt);
+      if (ds < 0.052) col = paletteColor(${PALETTE.orbCore}.0);
+      else if (ds < 0.07 && bt < 0.55) col = paletteColor(${PALETTE.orbEdge}.0);
 
-    if (ny < 0.42 && u_stars > 0.03) {
-      float starHash = hash2(px.x * 1.7, px.y * 2.3);
-      if (starHash > 0.9935) {
-        float twinkle = 0.5 + 0.5 * sin(u_time * 1.8 + starHash * 97.0);
-        float visibility = twinkle * (0.45 - ny) * 3.2 * u_stars;
-        if (visibility > threshold) color = mix(color, vec3(0.94, 0.91, 0.78), 0.92);
+      // stars, by daypart
+      if (ny < 0.42 && u_stars > 0.03) {
+        float sh = hash2(x * 1.7, y * 2.3);
+        if (sh > 0.9935) {
+          float tw = 0.5 + 0.5 * sin(u_time * 1.8 + sh * 97.0);
+          if (tw * (0.45 - ny) * 3.2 * u_stars > bt) {
+            col = paletteColor(${PALETTE.star}.0);
+          }
+        }
+      }
+
+      // far ridge → rolling hills → near ridge
+      float d1 = nx + sw * 0.00008;
+      float dhh = nx + sw * 0.00014;
+      float d2 = nx + sw * 0.00022;
+      float r1 = HZ - 0.1 - vnoise(d1 * 2.2, 3.1) * 0.085 - vnoise(d1 * 6.0, 9.4) * 0.024;
+      float rh = HZ - 0.072 - (sin(dhh * 5.1) * 0.5 + 0.5) * 0.04 - vnoise(dhh * 1.7, 55.5) * 0.028;
+      float r2 = HZ - 0.03 - vnoise(d2 * 3.2, 17.7) * 0.055 - vnoise(d2 * 8.5, 27.2) * 0.018;
+      float edge = (bt - 0.5) * 0.008;
+      if (ny + edge > r2) col = paletteColor(${PALETTE.near}.0);
+      else if (ny + edge > rh) col = paletteColor(${PALETTE.hill}.0);
+      else if (ny + edge > r1) col = paletteColor(${PALETTE.far}.0);
+    } else {
+      // ---- GROUND ----
+      float d = (ny - HZ) / (1.0 - HZ);
+      float u = (vnoise(nx * 1.4 + sw * 0.0016, 8.8) - 0.5) * 0.016;
+      float rTop = 0.795 + u;
+      float rBot = 0.9 + u * 0.6;
+      float edge = (bt - 0.5) * 0.012;
+      float fgTop = 0.952 + vnoise(nx * 5.0 + sw * 0.0028, 44.4) * 0.032;
+      if (ny > fgTop) {
+        col = paletteColor(${PALETTE.foreground}.0);
+      } else if (ny + edge > rTop && ny + edge < rBot) {
+        float stone = vnoise(nx * 9.0 + sw * 0.0017, ny * 46.0);
+        float pi = 3.0 + (stone - 0.5) * 2.6 + ((ny - rTop) / (rBot - rTop)) * 1.4;
+        if (stone > 0.62) pi += 2.4;
+        pi = clamp(pi, 0.0, P_N - 1.0);
+        col = ditheredRamp(${PALETTE.path}.0, P_N, pi, bt);
+      } else {
+        float scroll = sw * (0.0004 + d * d * 0.0022);
+        float gn =
+          vnoise(nx * 5.0 + scroll, d * 6.0 + 2.2) * 0.7 +
+          vnoise(nx * 12.0 + scroll * 1.6, d * 14.0 + 7.7) * 0.3;
+        float idx = (1.0 - d) * (G_N - 1.0) * 0.92 + (gn - 0.5) * 2.6;
+        idx = clamp(idx, 0.0, G_N - 1.0);
+        col = ditheredRamp(${PALETTE.ground}.0, G_N, idx, bt);
+
+        // river water fills the low meadow at the crossing
+        if (u_water > 0.02 && ny > 0.9) {
+          float shimmer = vnoise(nx * 26.0 + u_time * 0.85 + sw * 0.003, ny * 80.0);
+          vec3 waterColor = shimmer > 0.62
+            ? paletteColor(${PALETTE.waterLit}.0)
+            : paletteColor(${PALETTE.waterDeep}.0);
+          if (shimmer > 0.62 && bt > 0.6) {
+            waterColor = mix(waterColor, vec3(1.0, 245.0 / 255.0, 220.0 / 255.0), 0.2);
+          }
+          col = mix(col, waterColor, u_water * min(1.0, (ny - 0.9) * 18.0));
+        }
       }
     }
 
-    if (orbDistance < 0.052) {
-      color = mix(color, u_orb_color, 0.94);
-    } else if (orbDistance < 0.070 && threshold < 0.55) {
-      color = mix(color, u_orb_color, 0.56);
-    }
-
-    float farTop = HZ - 0.100
-      + (vnoise(nx * 3.0 + sw * 0.00008, 6.1) - 0.5) * 0.070;
-    float hillTop = HZ - 0.072
-      + (vnoise(nx * 4.2 + sw * 0.00014, 17.3) - 0.5) * 0.082;
-    float nearTop = HZ - 0.030
-      + (vnoise(nx * 5.4 + sw * 0.00022, 31.9) - 0.5) * 0.092;
-
-    if (ny > farTop) {
-      float ridgeGrain = (vnoise(nx * 9.0 + sw * 0.00008, ny * 11.0) - 0.5) * 1.4;
-      color = ditheredRamp(14.0, 10.0, 6.2 + ridgeGrain, threshold);
-    }
-    if (ny > hillTop) {
-      float ridgeGrain = (vnoise(nx * 12.0 + sw * 0.00014, ny * 14.0) - 0.5) * 1.7;
-      color = ditheredRamp(14.0, 10.0, 4.2 + ridgeGrain, threshold);
-    }
-    if (ny > nearTop) {
-      float ridgeGrain = (vnoise(nx * 16.0 + sw * 0.00022, ny * 19.0) - 0.5) * 1.9;
-      color = ditheredRamp(14.0, 10.0, 2.5 + ridgeGrain, threshold);
-    }
-
-    if (ny > HZ) {
-      float groundDepth = (ny - HZ) / (1.0 - HZ);
-      float groundNoise = (vnoise(nx * 18.0 + sw * 0.0016, ny * 20.0) - 0.5) * 2.3;
-      color = ditheredRamp(14.0, 10.0, groundDepth * 8.0 + groundNoise, threshold);
-
-      float bend = (vnoise(groundDepth * 3.2 + sw * 0.0017, 22.4) - 0.5) * 0.20;
-      float pathCenter = 0.50 + bend * groundDepth;
-      float pathHalfWidth = mix(0.018, 0.34, groundDepth);
-      if (abs(nx - pathCenter) < pathHalfWidth) {
-        float stone = vnoise(nx * 31.0 + sw * 0.0017, ny * 27.0);
-        float pathIndex = groundDepth * 6.0 + (stone - 0.5) * 2.5;
-        color = ditheredRamp(24.0, 8.0, pathIndex, threshold);
+    // shooting star — only across a starry sky
+    if (u_stars > 0.4) {
+      float period = 11.0;
+      float ph = mod(u_time, period);
+      if (ph < 0.8) {
+        float seed = floor(u_time / period);
+        float sx0 = 0.12 + hash2(seed, 1.0) * 0.55;
+        float sy0 = 0.05 + hash2(seed, 2.0) * 0.14;
+        float pr = ph / 0.8;
+        for (int q = 0; q < 7; q++) {
+          float fq = float(q);
+          float pp = pr - fq * 0.02;
+          if (pp >= 0.0) {
+            vec2 starPixel = floor(vec2((sx0 + pp * 0.3) * W, (sy0 + pp * 0.17) * H));
+            if (all(equal(pixel, starPixel))) {
+              float alpha = max(0.0, 0.95 * (1.0 - fq / 7.0) * (1.0 - pr) * u_stars);
+              col = mix(col, paletteColor(${PALETTE.star}.0), alpha);
+            }
+          }
+        }
       }
     }
 
-    float foregroundTop = 0.952 + vnoise(nx * 5.0 + sw * 0.0028, 44.4) * 0.032;
-    if (ny > foregroundTop) {
-      float foregroundGrain = (vnoise(nx * 29.0 + sw * 0.0028, ny * 23.0) - 0.5) * 1.3;
-      color = ditheredRamp(14.0, 10.0, foregroundGrain, threshold);
-    }
-
-    // Temporary waymark silhouette. Set-piece art remains a later task.
-    float markerX = abs(nx - 0.78);
-    float markerBase = 0.89;
-    float markerTop = 0.70 + vnoise(sw * 0.00004, 71.0) * 0.025;
-    float markerWidth = mix(0.020, 0.046, (ny - markerTop) / (markerBase - markerTop));
-    if (ny > markerTop && ny < markerBase && markerX < markerWidth) {
-      color = ditheredRamp(14.0, 10.0, 1.1 + (ny - markerTop) * 7.0, threshold);
-    }
-
-    gl_FragColor = vec4(color, 1.0);
+    gl_FragColor = vec4(col, 1.0);
   }
 `;
 
@@ -220,12 +292,10 @@ export function createWorldRenderer(
   gl.disable(gl.BLEND);
 
   let inputs = initialInputs;
-  let targets = buildTargets(initialInputs.daypart, initialInputs.accentHex);
-  const currentPalette = targets.palette.slice();
+  let target = buildTarget(initialInputs);
+  const current = clonePaletteState(target);
+  const framePalette = new Float32Array(PALETTE_WIDTH * 3);
   const palettePixels = new Uint8Array(PALETTE_WIDTH * 4);
-  let currentOrb: [number, number] = [...targets.orb];
-  let currentOrbColor: Rgb = [...targets.orbColor];
-  let currentStars = targets.stars;
   let animationFrame = 0;
   let disposed = false;
   const startedAt = performance.now();
@@ -236,10 +306,10 @@ export function createWorldRenderer(
     palette: requireUniform(gl, worldProgram, 'u_palette'),
     bayer: requireUniform(gl, worldProgram, 'u_bayer'),
     time: requireUniform(gl, worldProgram, 'u_time'),
-    progress: requireUniform(gl, worldProgram, 'u_progress'),
+    scroll: requireUniform(gl, worldProgram, 'u_scroll'),
     orb: requireUniform(gl, worldProgram, 'u_orb'),
-    orbColor: requireUniform(gl, worldProgram, 'u_orb_color'),
     stars: requireUniform(gl, worldProgram, 'u_stars'),
+    water: requireUniform(gl, worldProgram, 'u_water'),
   };
   const displayLocations = {
     position: gl.getAttribLocation(displayProgram, 'a_position'),
@@ -249,13 +319,9 @@ export function createWorldRenderer(
 
   function draw(timestamp: number): void {
     if (disposed) return;
-    for (let i = 0; i < currentPalette.length; i += 1) {
-      currentPalette[i] += (targets.palette[i] - currentPalette[i]) * COLOR_LERP;
-    }
-    currentOrb = lerpPair(currentOrb, targets.orb, COLOR_LERP);
-    currentOrbColor = mix(currentOrbColor, targets.orbColor, COLOR_LERP);
-    currentStars += (targets.stars - currentStars) * COLOR_LERP;
-    uploadPalette(gl, paletteTexture, currentPalette, palettePixels);
+    lerpPaletteState(current, target, COLOR_LERP);
+    buildFramePalette(current, framePalette);
+    uploadPalette(gl, paletteTexture, framePalette, palettePixels);
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
     gl.viewport(0, 0, BUFFER_WIDTH, BUFFER_HEIGHT);
@@ -264,15 +330,10 @@ export function createWorldRenderer(
     bindTexture(gl, paletteTexture, 0, worldLocations.palette);
     bindTexture(gl, bayerTexture, 1, worldLocations.bayer);
     gl.uniform1f(worldLocations.time, (timestamp - startedAt) / 1000);
-    gl.uniform1f(worldLocations.progress, clamp01(inputs.walkProgress));
-    gl.uniform2f(worldLocations.orb, currentOrb[0], currentOrb[1]);
-    gl.uniform3f(
-      worldLocations.orbColor,
-      currentOrbColor[0] / 255,
-      currentOrbColor[1] / 255,
-      currentOrbColor[2] / 255,
-    );
-    gl.uniform1f(worldLocations.stars, currentStars);
+    gl.uniform1f(worldLocations.scroll, scrollDistance(inputs));
+    gl.uniform2f(worldLocations.orb, current.orb[0], current.orb[1]);
+    gl.uniform1f(worldLocations.stars, current.stars);
+    gl.uniform1f(worldLocations.water, current.water);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, defaultFramebuffer);
@@ -286,15 +347,18 @@ export function createWorldRenderer(
     animationFrame = requestAnimationFrame(draw);
   }
 
-  uploadPalette(gl, paletteTexture, currentPalette, palettePixels);
+  buildFramePalette(current, framePalette);
+  uploadPalette(gl, paletteTexture, framePalette, palettePixels);
   animationFrame = requestAnimationFrame(draw);
 
   return {
     update(nextInputs) {
-      const paletteChanged =
-        nextInputs.daypart !== inputs.daypart || nextInputs.accentHex !== inputs.accentHex;
+      const targetChanged =
+        nextInputs.daypart !== inputs.daypart ||
+        nextInputs.waymarkId !== inputs.waymarkId ||
+        nextInputs.accentHex !== inputs.accentHex;
       inputs = nextInputs;
-      if (paletteChanged) targets = buildTargets(nextInputs.daypart, nextInputs.accentHex);
+      if (targetChanged) target = buildTarget(nextInputs);
     },
     dispose() {
       disposed = true;
@@ -310,40 +374,99 @@ export function createWorldRenderer(
   };
 }
 
-function buildTargets(daypart: Daypart, accentHex: string): Targets {
-  const source = DAYPARTS[daypart];
-  const accent = accentRamp(accentHex);
-  const skyStops = source.sky.map((hex, index) =>
-    mix(hx(hex), accent[index], 0.45),
-  ) as [Rgb, Rgb, Rgb];
-  const earthBase = skyStops[2];
-  const groundStops: Rgb[] = [
-    sink(mix(earthBase, accent[2], 0.18), 0.80),
-    sink(mix(earthBase, accent[1], 0.22), 0.66),
-    lift(sink(earthBase, 0.56), 0.10),
-  ];
-  const pathStops: Rgb[] = [
-    sink(mix(earthBase, accent[2], 0.10), 0.60),
-    lift(sink(earthBase, 0.44), 0.14),
-    lift(mix(earthBase, accent[0], 0.16), 0.26),
-  ];
-  const colors = [
-    ...ramp(skyStops, SKY_STEPS),
-    ...ramp(groundStops, GROUND_STEPS),
-    ...ramp(pathStops, PATH_STEPS),
-  ];
-  const palette = new Float32Array(PALETTE_WIDTH * 3);
-  colors.forEach((color, index) => {
-    palette[index * 3] = color[0];
-    palette[index * 3 + 1] = color[1];
-    palette[index * 3 + 2] = color[2];
-  });
+function buildTarget(inputs: RenderInputs): PaletteState {
+  const daypart = DAYPARTS[inputs.daypart];
   return {
-    palette,
-    orb: source.orb,
-    orbColor: mix(hx(source.orbC), accent[0], 0.18),
-    stars: source.stars,
+    sky: daypart.sky.map(hx) as [Rgb, Rgb, Rgb],
+    plane: [...DEFAULT_PLANE],
+    path: [...DEFAULT_PATH],
+    accent: hx(inputs.accentHex),
+    orb: [...daypart.orb],
+    orbColor: hx(daypart.orbC),
+    stars: daypart.stars,
+    water: inputs.waymarkId === RIVER_WAYMARK_ID ? 1 : 0,
   };
+}
+
+function clonePaletteState(source: PaletteState): PaletteState {
+  return {
+    sky: source.sky.map((color) => [...color]) as [Rgb, Rgb, Rgb],
+    plane: [...source.plane],
+    path: [...source.path],
+    accent: [...source.accent],
+    orb: [...source.orb],
+    orbColor: [...source.orbColor],
+    stars: source.stars,
+    water: source.water,
+  };
+}
+
+function lerpPaletteState(current: PaletteState, target: PaletteState, amount: number): void {
+  for (let index = 0; index < 3; index += 1) {
+    current.sky[index] = mix(current.sky[index], target.sky[index], amount);
+  }
+  current.plane = mix(current.plane, target.plane, amount);
+  current.path = mix(current.path, target.path, amount);
+  current.accent = mix(current.accent, target.accent, amount);
+  current.orbColor = mix(current.orbColor, target.orbColor, amount);
+  current.orb[0] += (target.orb[0] - current.orb[0]) * amount;
+  current.orb[1] += (target.orb[1] - current.orb[1]) * amount;
+  current.stars += (target.stars - current.stars) * amount;
+  current.water += (target.water - current.water) * amount;
+}
+
+function buildFramePalette(current: PaletteState, output: Float32Array): void {
+  const skyRamp = ramp([
+    sink(current.sky[0], 0.35),
+    current.sky[0],
+    current.sky[1],
+    current.sky[2],
+    lift(current.sky[2], 0.3),
+  ], SKY_STEPS);
+  const groundRamp = ramp([
+    sink(current.plane, 0.55),
+    current.plane,
+    mix(current.plane, current.sky[2], 0.45),
+    mix(current.plane, current.sky[2], 0.8),
+  ], GROUND_STEPS);
+  const pathRamp = ramp([
+    sink(current.path, 0.4),
+    current.path,
+    mix(current.path, current.sky[2], 0.55),
+  ], PATH_STEPS);
+  const mFar = mix(mix(current.sky[1], current.plane, 0.5), current.sky[2], 0.28);
+  const mNear = mix(current.plane, current.sky[0], 0.4);
+  const mHill = mix(mFar, mNear, 0.5);
+  const fgDark = sink(current.plane, 0.68);
+  const orbCore = lift(current.orbColor, 0.25);
+  const orbEdge = current.orbColor;
+  const waterDeep = mix(mix(current.sky[0], [40, 70, 130], 0.35), current.plane, 0.3);
+  const waterLit = mix(current.sky[2], [160, 200, 255], 0.25);
+
+  const colors = [
+    ...skyRamp,
+    ...groundRamp,
+    ...pathRamp,
+    mFar,
+    mHill,
+    mNear,
+    fgDark,
+    orbCore,
+    orbEdge,
+    waterDeep,
+    waterLit,
+    STAR,
+  ];
+  colors.forEach((color, index) => {
+    output[index * 3] = color[0];
+    output[index * 3 + 1] = color[1];
+    output[index * 3 + 2] = color[2];
+  });
+}
+
+function scrollDistance(inputs: RenderInputs): number {
+  const waymarkIndex = Math.max(0, WAYMARKS.findIndex((waymark) => waymark.id === inputs.waymarkId));
+  return (waymarkIndex + clamp01(inputs.walkProgress)) * LEG_SCROLL_DISTANCE;
 }
 
 function makeProgram(
@@ -457,11 +580,11 @@ function uploadPalette(
   palette: Float32Array,
   pixels: Uint8Array,
 ): void {
-  for (let i = 0; i < PALETTE_WIDTH; i += 1) {
-    pixels[i * 4] = Math.round(clamp255(palette[i * 3]));
-    pixels[i * 4 + 1] = Math.round(clamp255(palette[i * 3 + 1]));
-    pixels[i * 4 + 2] = Math.round(clamp255(palette[i * 3 + 2]));
-    pixels[i * 4 + 3] = 255;
+  for (let index = 0; index < PALETTE_WIDTH; index += 1) {
+    pixels[index * 4] = Math.round(clamp255(palette[index * 3]));
+    pixels[index * 4 + 1] = Math.round(clamp255(palette[index * 3 + 1]));
+    pixels[index * 4 + 2] = Math.round(clamp255(palette[index * 3 + 2]));
+    pixels[index * 4 + 3] = 255;
   }
   gl.bindTexture(gl.TEXTURE_2D, texture);
   gl.texSubImage2D(
@@ -480,7 +603,9 @@ function uploadPalette(
 function bayerPixels(): Uint8Array {
   const pixels = new Uint8Array(8 * 8 * 4);
   BAYER.forEach((threshold, index) => {
-    const value = Math.round(threshold * 255);
+    // Store the original 0..63 matrix entry losslessly. The shader converts
+    // the normalized texture sample back to entry / 64.
+    const value = Math.round(threshold * 64);
     pixels[index * 4] = value;
     pixels[index * 4 + 1] = value;
     pixels[index * 4 + 2] = value;
@@ -497,17 +622,6 @@ function requireUniform(
   const location = gl.getUniformLocation(program, name);
   if (!location) throw new Error(`WorldView uniform ${name} is unavailable.`);
   return location;
-}
-
-function lerpPair(
-  current: [number, number],
-  target: [number, number],
-  amount: number,
-): [number, number] {
-  return [
-    current[0] + (target[0] - current[0]) * amount,
-    current[1] + (target[1] - current[1]) * amount,
-  ];
 }
 
 function clamp01(value: number): number {
