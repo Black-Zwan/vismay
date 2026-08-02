@@ -13,8 +13,8 @@ import * as Notifications from 'expo-notifications';
 import type { AppState } from '@/src/state/types';
 import { legDurationMs } from '@/src/core/leg';
 
-const ARRIVAL_NOTIF_ID = 'once_a_day_arrival';
-const WEEKLY_NOTIF_ID = 'once_a_day_weekly';
+const ARRIVAL_NOTIF_ID = 'vismay_arrival';
+const WEEKLY_NOTIF_ID = 'vismay_weekly';
 
 /** Configure how incoming notifications present when the app is foregrounded. */
 export function configureNotifications(): void {

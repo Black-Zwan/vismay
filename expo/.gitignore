@@ -43,3 +43,5 @@ yarn-error.*
 core.*
 node_modules
 .expo
+
+core

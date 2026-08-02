@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "WONDER",
-    "slug": "wonder",
+    "name": "Vismay",
+    "slug": "vismay",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "wonder",
+    "scheme": "vismay",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
@@ -15,14 +15,14 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "app.wonder"
+      "bundleIdentifier": "com.blackzwanlabs.vismay"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "app.wonder"
+      "package": "com.blackzwanlabs.vismay"
     },
     "web": {
       "favicon": "./assets/images/favicon.png"

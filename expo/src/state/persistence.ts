@@ -13,7 +13,7 @@ import type { AppState, PersistedEnvelope, ClockGuard } from '@/src/state/types'
 export const CURRENT_SCHEMA_VERSION = 1;
 
 /** Storage key (versioned). */
-const STORAGE_KEY = `wonder_state_v${CURRENT_SCHEMA_VERSION}`;
+const STORAGE_KEY = `vismay_state_v${CURRENT_SCHEMA_VERSION}`;
 
 /**
  * Storage backend interface. Swap implementations without touching the store.
