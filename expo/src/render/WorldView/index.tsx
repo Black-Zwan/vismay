@@ -8,7 +8,10 @@ import {
   type WorldRenderer,
 } from './renderer';
 import { CharacterSprite } from './CharacterSprite';
+import { PropLayers } from './PropLayers';
 import type { WorldViewProps } from './types';
+
+export { CharacterPreview } from './CharacterSprite';
 
 export function WorldView({
   daypart,
@@ -51,13 +54,20 @@ export function WorldView({
       ) : (
         <View style={styles.fallback} />
       )}
-      <View style={styles.character}>
-        <CharacterSprite
-          characterId={characterId}
-          accentHex={accentHex}
-          walking={walkProgress < 1}
-        />
-      </View>
+      <PropLayers
+        daypart={daypart}
+        waymarkId={waymarkId}
+        accentHex={accentHex}
+        walking={walkProgress < 1}
+      >
+        <View style={styles.character}>
+          <CharacterSprite
+            characterId={characterId}
+            accentHex={accentHex}
+            walking={walkProgress < 1}
+          />
+        </View>
+      </PropLayers>
     </View>
   );
 }

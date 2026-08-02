@@ -6,6 +6,8 @@ import { hx, lift, mix, ramp, sink, type Rgb } from '@/src/core/color';
 import { BAYER } from '@/src/core/dither';
 import type { Daypart } from '@/src/core/time';
 
+import { ROAD_SCROLL_PX_PER_SECOND } from './motion';
+
 export const BUFFER_WIDTH = 132;
 export const BUFFER_HEIGHT = 254;
 export const BUFFER_ASPECT_RATIO = BUFFER_WIDTH / BUFFER_HEIGHT;
@@ -298,6 +300,8 @@ export function createWorldRenderer(
   let animationFrame = 0;
   let disposed = false;
   const startedAt = performance.now();
+  let lastFrameAt: number | null = null;
+  let scroll = scrollDistance(initialInputs);
 
   const worldLocations = {
     position: gl.getAttribLocation(worldProgram, 'a_position'),
@@ -318,6 +322,11 @@ export function createWorldRenderer(
 
   function draw(timestamp: number): void {
     if (disposed) return;
+    if (lastFrameAt !== null && inputs.walkProgress < 1) {
+      const elapsedSeconds = Math.min(100, timestamp - lastFrameAt) / 1_000;
+      scroll += elapsedSeconds * ROAD_SCROLL_PX_PER_SECOND;
+    }
+    lastFrameAt = timestamp;
     lerpPaletteState(current, target, COLOR_LERP);
     buildFramePalette(current, framePalette);
     uploadPalette(gl, paletteTexture, framePalette, palettePixels);
@@ -329,7 +338,7 @@ export function createWorldRenderer(
     bindTexture(gl, paletteTexture, 0, worldLocations.palette);
     bindTexture(gl, bayerTexture, 1, worldLocations.bayer);
     gl.uniform1f(worldLocations.time, (timestamp - startedAt) / 1000);
-    gl.uniform1f(worldLocations.scroll, scrollDistance(inputs));
+    gl.uniform1f(worldLocations.scroll, scroll);
     gl.uniform2f(worldLocations.orb, current.orb[0], current.orb[1]);
     gl.uniform1f(worldLocations.stars, current.stars);
     gl.uniform1f(worldLocations.water, current.water);

@@ -11,6 +11,7 @@ import { useAccentColor } from '@/src/ui/AccentColor';
 import { Text } from '@/src/ui/Text';
 import { colors, spacing } from '@/src/ui/tokens';
 import { CHARACTERS } from '@/src/content/characters';
+import { CharacterPreview } from '@/src/render/WorldView';
 import { useStore } from '@/src/state/store';
 
 export default function CharacterScreen() {
@@ -35,7 +36,13 @@ export default function CharacterScreen() {
                 { borderColor: isSel ? accent : colors.line, opacity: pressed ? 0.72 : 1 },
               ]}
             >
-              <View style={styles.swatch} />
+              <View style={styles.preview}>
+                <CharacterPreview
+                  characterId={item.id}
+                  accentHex={item.accentHex}
+                  fallback={<View style={styles.swatch} />}
+                />
+              </View>
               <View style={{ flex: 1 }}>
                 <Text>{item.name}</Text>
                 <Text variant="caption" muted>{item.blurb}</Text>
@@ -84,6 +91,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceRaised,
     borderColor: colors.line,
     borderWidth: StyleSheet.hairlineWidth,
+  },
+  preview: {
+    width: 64,
+    height: 86,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
   },
   cta: { marginTop: spacing.md },
 });
