@@ -5,8 +5,10 @@ import type { AspectId } from '../state/types';
 import {
   crossedThresholds,
   emptyAspects,
+  rotatingOpenPullSecondary,
   scorePull,
   seedAspectsForElement,
+  titleTier,
 } from './mirror';
 
 function makeLens(overrides: Partial<LensEntry> = {}): LensEntry {
@@ -64,6 +66,35 @@ describe('scorePull', () => {
   it('ignores owner mappings that are not assigned yet', () => {
     const before = emptyAspects();
     expect(scorePull(before, makeLens(), makeCard())).toEqual(before);
+  });
+
+  it('lets different card assignments shape the same question differently', () => {
+    const lens = makeLens({ primaryAspect: 'tenderness', secondaryAspect: 'sight' });
+    const sun = scorePull(emptyAspects(), lens, makeCard({ aspect: 'resolve' }));
+    const moon = scorePull(emptyAspects(), lens, makeCard({ aspect: 'solitude' }));
+
+    expect(sun).not.toEqual(moon);
+    expect(sun.resolve).toBe(1);
+    expect(moon.solitude).toBe(1);
+  });
+
+  it('adds an undisclosed road mark when supplied', () => {
+    const after = scorePull(emptyAspects(), makeLens(), makeCard(), { roadAspect: 'fortune' });
+    expect(after.fortune).toBe(1);
+  });
+});
+
+describe('open pull rotation', () => {
+  it('turns through all five non-Fortune aspects deterministically', () => {
+    expect(Array.from({ length: 6 }, (_, index) => rotatingOpenPullSecondary(index))).toEqual([
+      'tenderness', 'resolve', 'craft', 'sight', 'solitude', 'tenderness',
+    ]);
+  });
+});
+
+describe('titleTier', () => {
+  it('deepens at 10, 26, and 52', () => {
+    expect([9, 10, 25, 26, 51, 52].map(titleTier)).toEqual([0, 1, 1, 2, 2, 3]);
   });
 });
 

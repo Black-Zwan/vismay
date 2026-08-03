@@ -21,6 +21,7 @@ import type {
   MirrorState,
   Phase,
   Settings,
+  AspectId,
 } from '@/src/state/types';
 import {
   CURRENT_SCHEMA_VERSION,
@@ -39,7 +40,14 @@ import {
   startNextLeg,
   walkProgress,
 } from '@/src/core/leg';
-import { ASPECT_IDS, emptyAspects, scorePull, seedAspectsForElement } from '@/src/core/mirror';
+import {
+  ASPECT_IDS,
+  emptyAspects,
+  rotatingOpenPullSecondary,
+  scorePull,
+  seedAspectsForElement,
+} from '@/src/core/mirror';
+import { pickWatchSignId } from '@/src/core/sky';
 import { assemblePassage } from '@/src/core/passage';
 import {
   DEV_DAYPART_OVERRIDE,
@@ -50,7 +58,8 @@ import {
 import type { Daypart } from '@/src/core/time';
 import { makeId } from '@/src/core/ids';
 import { DEFAULT_CHARACTER_ID, getCharacter } from '@/src/content/characters';
-import { DEFAULT_SIGN_ID, getSign } from '@/src/content/signs';
+import { DEFAULT_SIGN_ID, SIGNS, getSign } from '@/src/content/signs';
+import { getHoroscopeLine } from '@/src/content/sky';
 import { getCard, pickCardForPull } from '@/src/content/cards';
 import { getLens } from '@/src/content/lenses';
 import { ANSWERS, OPENERS } from '@/src/content/passages';
@@ -99,6 +108,7 @@ export interface StoreState extends AppState {
   drawCard: () => void;
   revealCard: () => void;
   finishReading: () => void;
+  beginDeparture: () => void;
   closePull: () => void;
 
   // --- settings ---
@@ -115,6 +125,9 @@ export interface StoreState extends AppState {
   devJumpBiome: () => void;
   devSetWalkProgress: (progress: number) => void;
   devForcePlace: (biome: BiomeId, archetypeId: string) => void;
+  devGrantAspect: (aspect: AspectId, points?: number) => void;
+  devCycleSign: () => void;
+  devFireArrivalNotification: () => void;
 }
 
 function rollLegSeed(): number {
@@ -159,6 +172,7 @@ function defaultAppState(): AppState {
       notifyArrival: true,
       notifyWeekly: false,
       devMode: false,
+      arrivalPermissionAsked: false,
     },
     devOffsetMs: 0,
     schemaVersion: CURRENT_SCHEMA_VERSION,
@@ -186,6 +200,24 @@ let notifySideEffect: NotificationSideEffect | null = null;
 
 export function setNotificationSideEffect(fn: NotificationSideEffect | null): void {
   notifySideEffect = fn;
+}
+
+export type NotificationPermissionSideEffect = () => Promise<boolean>;
+export type ImmediateNotificationSideEffect = (state: AppState) => void;
+
+let permissionSideEffect: NotificationPermissionSideEffect | null = null;
+let immediateNotificationSideEffect: ImmediateNotificationSideEffect | null = null;
+
+export function setNotificationPermissionSideEffect(
+  fn: NotificationPermissionSideEffect | null,
+): void {
+  permissionSideEffect = fn;
+}
+
+export function setImmediateNotificationSideEffect(
+  fn: ImmediateNotificationSideEffect | null,
+): void {
+  immediateNotificationSideEffect = fn;
 }
 
 /** Helper to run the notification side-effect if registered. */
@@ -255,7 +287,9 @@ export const useStore = create<StoreState>((set, get) => ({
       legStartedAt: timestamp,
       legDurationMs: duration,
       arrivalAt: computeArrivalAt(timestamp, duration),
-      bankedArrivals: 0,
+      // The first pull is immediate. The first real-time leg begins only after
+      // that reading closes.
+      bankedArrivals: 1,
       dayIndex: 0,
       waymarkIndex: 0,
       stepsWalked: 0,
@@ -267,12 +301,11 @@ export const useStore = create<StoreState>((set, get) => ({
     };
     set({
       onboarded: true,
-      phase: 'traveling',
+      phase: 'arrive',
       journey,
       mirror: defaultMirror(selectedSignId),
       raresFound: [],
     });
-    runNotifyEffect(get(), get().devFastLegs);
     void persistState(getAppState(get()), get().clockGuard);
   },
 
@@ -345,7 +378,7 @@ export const useStore = create<StoreState>((set, get) => ({
     const card = pickCardForPull(unitFromSeed(state.journey.seed, 0xca4d));
     const place = state.journey.place;
     const openerText = `${place.name} — ${lens.label}`;
-    const answerText = card.readings[lensId] ?? 'Placeholder reading.';
+    const answerText = card.readings[lensId] ?? '';
     set({
       phase: 'draw',
       pullDraft: { lensId, cardId: card.id, openerText, answerText },
@@ -367,8 +400,14 @@ export const useStore = create<StoreState>((set, get) => ({
   finishReading: () => {
     const state = get();
     if (state.phase !== 'reading' || !state.pullDraft) return;
-    set({ phase: 'walk' });
+    set({ phase: 'done' });
     void persistState(getAppState(get()), get().clockGuard);
+  },
+
+  beginDeparture: () => {
+    const state = get();
+    if (state.phase !== 'done' || !state.pullDraft) return;
+    set({ phase: 'walk' });
   },
 
   closePull: () => {
@@ -396,6 +435,7 @@ export const useStore = create<StoreState>((set, get) => ({
         epigraph: card.epigraph,
       },
     );
+    const sky = resolveDailySky(state.journey);
     const entry: ChronicleEntry = {
       id: makeId('entry'),
       dayIndex: entryDay,
@@ -409,12 +449,21 @@ export const useStore = create<StoreState>((set, get) => ({
       createdAt: timestamp,
       placeName: place.name,
       bucketKey: place.bucketKey,
+      horoscopeText: sky.horoscopeText,
+      watchForSignId: sky.watchForSignId,
     };
     const recentPulls = [
       { cardId: card.id, lensId: lens.id, at: timestamp },
       ...state.mirror.recentPulls,
     ].slice(0, 10);
-    const aspects = scorePull(state.mirror.aspects, lens, card);
+    const secondaryAspect = lens.id === 'lens_open'
+      ? rotatingOpenPullSecondary(state.mirror.lensHistory.length)
+      : undefined;
+    const roadAspect = roadMarkForPull(state.journey.seed, state.journey.dayIndex);
+    const aspects = scorePull(state.mirror.aspects, lens, card, {
+      secondaryAspect,
+      roadAspect,
+    });
 
     // Consume a banked arrival for this pull.
     let journey = consumeBankedArrival(state.journey);
@@ -456,6 +505,10 @@ export const useStore = create<StoreState>((set, get) => ({
     // completes (closePull is called at the end of the walk). So:
     const phase: Phase = journey.bankedArrivals > 0 ? 'arrive' : 'traveling';
 
+    const shouldRequestArrivalPermission = state.chronicle.length === 0
+      && state.settings.notifyArrival
+      && !state.settings.arrivalPermissionAsked;
+
     set({
       phase,
       journey,
@@ -464,20 +517,45 @@ export const useStore = create<StoreState>((set, get) => ({
       mirror: {
         ...state.mirror,
         aspects,
-        lensHistory: [lens.id, ...state.mirror.lensHistory].slice(0, 30),
+        lensHistory: [lens.id, ...state.mirror.lensHistory],
         recentPulls,
       },
+      settings: shouldRequestArrivalPermission
+        ? { ...state.settings, arrivalPermissionAsked: true }
+        : state.settings,
     });
-    runNotifyEffect(get(), get().devFastLegs);
+    if (shouldRequestArrivalPermission && permissionSideEffect) {
+      void permissionSideEffect()
+        .catch(() => false)
+        .finally(() => runNotifyEffect(get(), get().devFastLegs));
+    } else {
+      runNotifyEffect(get(), get().devFastLegs);
+    }
     void persistState(getAppState(get()), get().clockGuard);
   },
 
   updateSettings: (patch) => {
-    const settings = { ...get().settings, ...patch };
+    const state = get();
+    const shouldRequestArrivalPermission = patch.notifyArrival === true
+      && state.chronicle.length > 0
+      && !state.settings.arrivalPermissionAsked;
+    const settings = {
+      ...state.settings,
+      ...patch,
+      arrivalPermissionAsked: shouldRequestArrivalPermission
+        ? true
+        : state.settings.arrivalPermissionAsked,
+    };
     const devOffsetMs = settings.devMode ? get().devOffsetMs : 0;
     if (!settings.devMode) setDevOffset(0);
     set({ settings, devOffsetMs });
-    runNotifyEffect(get(), get().devFastLegs);
+    if (shouldRequestArrivalPermission && permissionSideEffect) {
+      void permissionSideEffect()
+        .catch(() => false)
+        .finally(() => runNotifyEffect(get(), get().devFastLegs));
+    } else {
+      runNotifyEffect(get(), get().devFastLegs);
+    }
     void persistState(getAppState(get()), get().clockGuard);
   },
 
@@ -627,6 +705,41 @@ export const useStore = create<StoreState>((set, get) => ({
     });
     void persistState(getAppState(get()), get().clockGuard);
   },
+
+  devGrantAspect: (aspect, points = 1) => {
+    const state = get();
+    if (!state.settings.devMode || !ASPECT_IDS.includes(aspect)) return;
+    const amount = Math.max(1, Math.floor(points));
+    set({
+      mirror: {
+        ...state.mirror,
+        aspects: {
+          ...state.mirror.aspects,
+          [aspect]: state.mirror.aspects[aspect] + amount,
+        },
+      },
+    });
+    void persistState(getAppState(get()), get().clockGuard);
+  },
+
+  devCycleSign: () => {
+    const state = get();
+    if (!state.settings.devMode) return;
+    const currentIndex = SIGNS.findIndex((sign) => sign.id === state.journey.signId);
+    const signId = SIGNS[(currentIndex + 1 + SIGNS.length) % SIGNS.length].id;
+    set({ journey: { ...state.journey, signId } });
+    void persistState(getAppState(get()), get().clockGuard);
+  },
+
+  devFireArrivalNotification: () => {
+    const state = get();
+    if (!state.settings.devMode || !immediateNotificationSideEffect) return;
+    try {
+      immediateNotificationSideEffect(getAppState(state));
+    } catch {
+      // Notification QA is best-effort and must not affect app state.
+    }
+  },
 }));
 
 function addRare(raresFound: string[], rareId: string | null): string[] {
@@ -672,6 +785,28 @@ export function selectRenderedBiome(journey: JourneyState, timestamp: number): B
 
 export function selectCharacterAccent(s: StoreState): string {
   return getCharacter(s.journey.characterId)?.accentHex ?? '#8B7355';
+}
+
+export function resolveDailySky(journey: JourneyState): {
+  horoscopeText?: string;
+  watchForSignId?: string;
+} {
+  return {
+    horoscopeText: getHoroscopeLine(
+      journey.signId,
+      unitFromSeed(journey.seed, 0x5a71 + journey.dayIndex),
+    ),
+    watchForSignId: pickWatchSignId(
+      journey.signId,
+      SIGNS.map((sign) => sign.id),
+      unitFromSeed(journey.seed, 0xa4e4d + journey.dayIndex),
+    ),
+  };
+}
+
+function roadMarkForPull(seed: number, dayIndex: number): AspectId | undefined {
+  if (unitFromSeed(seed, 0x704d + dayIndex) >= 0.125) return undefined;
+  return ASPECT_IDS[Math.floor(unitFromSeed(seed, 0x4a2b + dayIndex) * ASPECT_IDS.length)];
 }
 
 export { ASPECT_IDS, getWaymark };

@@ -45,6 +45,8 @@ export interface ChronicleEntry {
   createdAt: number;
   placeName?: string;
   bucketKey?: string;
+  horoscopeText?: string;
+  watchForSignId?: string;
 }
 
 export type AspectId =
@@ -66,6 +68,8 @@ export interface Settings {
   notifyArrival: boolean;
   notifyWeekly: boolean;
   devMode: boolean;
+  /** True once the contextual arrival prompt has been shown. */
+  arrivalPermissionAsked: boolean;
 }
 
 export interface AppState {

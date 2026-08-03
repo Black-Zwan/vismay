@@ -14,10 +14,16 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { getCard } from '@/src/content/cards';
 import {
   configureNotifications,
+  fireArrivalNotificationNow,
   requestNotificationPermission,
   rescheduleNotifications,
 } from '@/src/services/notifications';
-import { setNotificationSideEffect, useStore } from '@/src/state/store';
+import {
+  setImmediateNotificationSideEffect,
+  setNotificationPermissionSideEffect,
+  setNotificationSideEffect,
+  useStore,
+} from '@/src/state/store';
 import { AccentColorProvider, useAccentColor } from '@/src/ui/AccentColor';
 import { NavigationTitle } from '@/src/ui/NavigationTitle';
 import { colors, fonts } from '@/src/ui/tokens';
@@ -75,8 +81,16 @@ export default function RootLayout() {
     setNotificationSideEffect((state, devFastLegs) => {
       void rescheduleNotifications(state, devFastLegs);
     });
-    void requestNotificationPermission();
+    setNotificationPermissionSideEffect(requestNotificationPermission);
+    setImmediateNotificationSideEffect((state) => {
+      void fireArrivalNotificationNow(state);
+    });
     void hydrate();
+    return () => {
+      setNotificationSideEffect(null);
+      setNotificationPermissionSideEffect(null);
+      setImmediateNotificationSideEffect(null);
+    };
   }, [hydrate]);
 
   useEffect(() => {

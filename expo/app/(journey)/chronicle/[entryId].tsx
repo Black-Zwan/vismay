@@ -26,6 +26,7 @@ import { getCard } from '@/src/content/cards';
 import { getWaymark } from '@/src/content/waymarks';
 import { getLens } from '@/src/content/lenses';
 import { getCurio } from '@/src/content/curios';
+import { getSign } from '@/src/content/signs';
 
 export default function EntryScreen() {
   const { entryId } = useLocalSearchParams<{ entryId: string }>();
@@ -130,10 +131,24 @@ export default function EntryScreen() {
         />
       </View>
 
-      <View style={styles.section}>
-        <Text variant="label" muted>Departure</Text>
-        <Text style={{ marginTop: 4 }}>{entry.departText}</Text>
-      </View>
+      {entry.departText ? (
+        <View style={styles.section}>
+          <Text variant="label" muted>Departure</Text>
+          <Text style={{ marginTop: 4 }}>{entry.departText}</Text>
+        </View>
+      ) : null}
+
+      {entry.watchForSignId ? (
+        <View style={styles.section}>
+          <Text variant="label" muted>On the Road Ahead</Text>
+          {entry.horoscopeText ? (
+            <Text variant="reading" style={{ marginTop: 4 }}>{entry.horoscopeText}</Text>
+          ) : null}
+          <Text style={{ marginTop: 4 }}>
+            {`${getSign(entry.watchForSignId)?.glyph ?? ''}\uFE0E ${getSign(entry.watchForSignId)?.name ?? ''}`}
+          </Text>
+        </View>
+      ) : null}
 
       {entry.curioIds.length > 0 ? (
         <View style={styles.section}>
@@ -180,7 +195,7 @@ export default function EntryScreen() {
             <Text variant="display">{cardName}</Text>
             <Text variant="reading" muted style={{ marginTop: spacing.xs }}>{card?.epigraph ?? ''}</Text>
             <Text variant="reading" style={{ marginTop: spacing.md }}>
-              {card?.readings[entry.lensId] ?? 'TODO: copy'}
+              {card?.readings[entry.lensId] ?? ''}
             </Text>
             <Button
               label="Close"

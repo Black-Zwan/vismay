@@ -23,7 +23,7 @@ export interface LensEntry {
   id: string;
   label: string;
   glyph: string;
-  /** TODO(owner): Mirror mapping is not authored yet. */
+  /** Mirror growth supplied by the owner-authored lens table. */
   primaryAspect?: AspectId;
   secondaryAspect?: AspectId;
 }
@@ -49,6 +49,8 @@ export interface SignEntry {
 export interface AspectEntry {
   id: AspectId;
   name: string;
+  /** Owner-authored titles at the 10 / 26 / 52 thresholds. */
+  titles?: readonly [string, string, string];
 }
 
 /** A collectible curio unlocked via aspect thresholds. */
