@@ -18,9 +18,11 @@ const SKY_STEPS = 14;
 const GROUND_STEPS = 10;
 const PATH_STEPS = 8;
 const COLOR_LERP = 0.045;
-const PALETTE_WIDTH = 41;
+const PALETTE_WIDTH = 53;
 const LEG_SCROLL_DISTANCE = 480;
 const STAR: Rgb = [255, 244, 214];
+
+const WATER_STEPS = 12;
 
 const PALETTE = {
   sky: 0,
@@ -35,6 +37,7 @@ const PALETTE = {
   waterDeep: 38,
   waterLit: 39,
   star: 40,
+  water: 41,
 } as const;
 
 export interface RenderInputs {
@@ -102,6 +105,7 @@ const WORLD_FRAGMENT_SHADER = `
   const float SKY_N = 14.0;
   const float G_N = 10.0;
   const float P_N = 8.0;
+  const float W_N = 12.0;
   const float PALETTE_W = 41.0;
 
   float hash2(float x, float y) {
@@ -127,6 +131,21 @@ const WORLD_FRAGMENT_SHADER = `
 
   vec3 paletteColor(float index) {
     return texture2D(u_palette, vec2((index + 0.5) / PALETTE_W, 0.5)).rgb;
+  }
+
+  float skyIndexAt(float nx, float skyNy, float sw, float time) {
+    float idx = (skyNy / HZ) * (SKY_N - 1.0);
+    idx += sin(nx * 9.0 + time * 0.55 + skyNy * 20.0) * 0.7 * (0.3 + skyNy);
+    idx += (vnoise(nx * 2.6 + time * 0.045, skyNy * 5.2 + 40.4) - 0.5)
+      * 3.2 * max(0.0, 1.0 - abs(skyNy - 0.34) / 0.34);
+    float band = max(0.0, 1.0 - abs(skyNy - 0.3) / 0.27);
+    if (band > 0.02) {
+      float cn =
+        vnoise(nx * 5.0 + time * 0.015 + sw * 0.00006, skyNy * 16.0 + 7.3) +
+        0.5 * vnoise(nx * 11.0 - time * 0.021 + 3.1, skyNy * 30.0 + 1.7);
+      idx += (cn / 1.5 - 0.5) * 4.4 * band;
+    }
+    return idx;
   }
 
   float bayerThreshold(vec2 pixel) {
@@ -155,23 +174,41 @@ const WORLD_FRAGMENT_SHADER = `
     if (ny < hz) {
       // ---- LIVING SKY ----
       float skyNy = ny * HZ / hz;
-      float idx = (skyNy / HZ) * (SKY_N - 1.0);
-      idx += sin(nx * 9.0 + u_time * 0.55 + skyNy * 20.0) * 0.7 * (0.3 + skyNy);
-      idx += (vnoise(nx * 2.6 + u_time * 0.045, skyNy * 5.2 + 40.4) - 0.5)
-        * 3.2 * max(0.0, 1.0 - abs(skyNy - 0.34) / 0.34);
-      float band = max(0.0, 1.0 - abs(skyNy - 0.3) / 0.27);
-      if (band > 0.02) {
-        float cn =
-          vnoise(nx * 5.0 + u_time * 0.015 + sw * 0.00006, skyNy * 16.0 + 7.3) +
-          0.5 * vnoise(nx * 11.0 - u_time * 0.021 + 3.1, skyNy * 30.0 + 1.7);
-        idx += (cn / 1.5 - 0.5) * 4.4 * band;
-      }
+      float idx = skyIndexAt(nx, skyNy, sw, u_time);
 
       // sun / moon at the hour's position
       float dxs = nx - u_orb.x;
       float dys = (skyNy - u_orb.y) * 1.55;
       float ds = sqrt(dxs * dxs + dys * dys);
       idx += max(0.0, 0.42 - ds) * 9.0;
+
+      // ---- scene atmosphere: index operations only, never colour blends ----
+      // horizon haze lifts the index toward the bright end of the ramp
+      idx += u_sky.y * max(0.0, 1.0 - abs(ny - hz) / max(0.001, hz * 0.42)) * 1.6;
+
+      // light shafts lift; they are brightness, not a tint
+      if (u_atmosphere.x > 0.0) {
+        float shaft = sin(nx * 7.3 + vnoise(nx * 2.0, 11.0) * 3.0);
+        if (shaft > 0.72) {
+          idx += u_atmosphere.x * 2.2 * smoothstep(0.72, 0.98, shaft) * (1.0 - ny / hz);
+        }
+      }
+
+      // canopy occludes from ABOVE. squared falloff keeps the horizon gap open —
+      // linear falloff is what turned this into flat fog.
+      if (u_sky.w > 0.0) {
+        float canopyEdge = u_sky.w + (vnoise(nx * 8.0 + sw * 0.00008, 19.0) - 0.5) * 0.055;
+        if (ny < canopyEdge) {
+          float canopyDepth = clamp((canopyEdge - ny) / max(0.001, canopyEdge), 0.0, 1.0);
+          float leaf = vnoise(nx * 9.2 + 3.3, ny * 26.0);
+          idx -= (6.5 + leaf * 5.0) * canopyDepth * canopyDepth;
+        }
+      }
+      // green understory haze darkens by index rather than blending a colour in
+      if (u_atmosphere.y > 0.0) {
+        idx -= max(0.0, 1.0 - abs(ny - hz * 0.82) / max(0.001, hz * 0.32)) * 2.4 * u_atmosphere.y;
+      }
+
       idx = clamp(idx, 0.0, SKY_N - 1.0);
       col = ditheredRamp(0.0, SKY_N, idx, bt);
       if (ds < 0.052) col = paletteColor(${PALETTE.orbCore}.0);
@@ -203,27 +240,6 @@ const WORLD_FRAGMENT_SHADER = `
       if (ny + edge > rh) col = mix(col, paletteColor(${PALETTE.hill}.0), hillAlpha);
       if (ny + edge > r2) col = mix(col, paletteColor(${PALETTE.near}.0), nearAlpha);
 
-      // Scene atmosphere is still the same sky path: numbers only.
-      float haze = u_sky.y * max(0.0, 1.0 - abs(ny - hz) / max(0.001, hz * 0.42));
-      col = mix(col, paletteColor(${PALETTE.orbEdge}.0), haze * 0.22);
-      if (u_atmosphere.y > 0.0) {
-        float greenHaze = max(0.0, 1.0 - abs(ny - hz * 0.82) / max(0.001, hz * 0.32));
-        col = mix(col, vec3(0.12, 0.25, 0.16), greenHaze * 0.34 * u_atmosphere.y);
-      }
-      if (u_atmosphere.x > 0.0) {
-        float shaft = sin(nx * 7.3 + vnoise(nx * 2.0, 11.0) * 3.0);
-        if (shaft > 0.72) {
-          float shaftStrength = smoothstep(0.72, 0.98, shaft);
-          col = mix(col, paletteColor(${PALETTE.orbEdge}.0), u_atmosphere.x * 0.32 * shaftStrength * (1.0 - ny / hz));
-        }
-      }
-      if (u_sky.w > 0.0) {
-        float canopyEdge = u_sky.w + (vnoise(nx * 8.0 + sw * 0.00008, 19.0) - 0.5) * 0.055;
-        if (ny < canopyEdge) {
-          float canopyDepth = clamp((canopyEdge - ny) / 0.13, 0.0, 1.0);
-          col = mix(col, paletteColor(${PALETTE.foreground}.0), canopyDepth * 0.92);
-        }
-      }
     } else {
       // ---- GROUND ----
       float d = (ny - hz) / (1.0 - hz);
@@ -270,7 +286,14 @@ const WORLD_FRAGMENT_SHADER = `
         if (u_ground.z > 0.02) {
           float reflectedNy = hz - (ny - hz) * u_ground.w + sin(nx * 70.0 + u_time * 0.35) * 0.0018;
           float reflectedSkyNy = reflectedNy * HZ / hz;
-          float reflectedIdx = clamp((reflectedSkyNy / HZ) * (SKY_N - 1.0), 0.0, SKY_N - 1.0);
+          // Reflect the FULL sky index — clouds, drift and orb glow included.
+          // A plain linear gradient here is why the salt flat read as a flat wash.
+          float reflectedIdx = skyIndexAt(nx, reflectedSkyNy, sw, u_time);
+          reflectedIdx += max(0.0, 0.42 - length(vec2(nx - u_orb.x, (reflectedSkyNy - u_orb.y) * 1.55))) * 9.0;
+          reflectedIdx += (vnoise(nx * 20.0 + u_time * 0.1, ny * 70.0) - 0.5) * 1.4;
+          // sit the reflection down the ramp so ground stays darker than sky
+          reflectedIdx -= 1.6;
+          reflectedIdx = clamp(reflectedIdx, 0.0, SKY_N - 1.0);
           vec3 reflection = ditheredRamp(0.0, SKY_N, reflectedIdx, bt);
           float rdx = nx - u_orb.x;
           float rdy = (reflectedSkyNy - u_orb.y) * 1.55;
@@ -284,8 +307,8 @@ const WORLD_FRAGMENT_SHADER = `
           float rd1 = nx + sw * 0.00008 + u_seed * 0.000013;
           float rr1 = hz - u_ridges.y * (0.1 + vnoise(rd1 * 2.2, 3.1 + u_seed * 0.000017) * 0.085 + vnoise(rd1 * 6.0, 9.4) * 0.024 * u_ridges.z) + u_ridgeDepth;
           if (reflectedNy > rr1) reflection = mix(reflection, paletteColor(${PALETTE.far}.0), clamp(u_ridges.x - 1.0, 0.0, 1.0));
-          float mirrorFade = clamp(1.0 - (ny - hz) / max(0.001, 1.0 - hz), 0.18, 0.82);
-          col = mix(col, reflection * 0.82, u_ground.z * mirrorFade);
+          float mirrorFade = clamp(1.0 - (ny - hz) / max(0.001, 1.0 - hz), 0.35, 1.0);
+          col = mix(col, reflection, u_ground.z * mirrorFade);
         }
 
         // Water is a numeric band; the legacy river remains byte-for-byte the default branch.
@@ -293,22 +316,23 @@ const WORLD_FRAGMENT_SHADER = `
           float depth = clamp((ny - u_waterBand.y) / max(0.001, u_waterBand.z - u_waterBand.y), 0.0, 1.0);
           float shimmer = vnoise(nx * 26.0 + u_time * 0.85 + sw * 0.003, ny * 80.0);
           if (u_waterBand.w > 0.5 && u_waterBand.w < 1.5) {
-            float perspective = pow(max(depth, 0.001), 0.62) * 46.0;
-            float wave = sin(perspective - u_time * 1.1 + nx * 2.2);
-            float chop = vnoise(nx * 18.0 + u_time * 0.18, depth * 16.0 + sw * 0.0012);
-            shimmer = wave * 0.5 + 0.5 + (chop - 0.5) * 0.72;
+            float freq = 12.0 + 70.0 * depth * depth;
+            float wave = sin(depth * freq - u_time * 1.1 + nx * 2.2);
+            float chop = vnoise(nx * (6.0 + 14.0 * depth) + u_time * 0.25, depth * 40.0 + sw * 0.0012);
+            shimmer = 0.5 + wave * 0.30 * (0.35 + depth) + (chop - 0.5) * 0.34;
           } else if (u_waterBand.w >= 1.5) {
             shimmer = vnoise(nx * 44.0 + u_time * 0.12, ny * 150.0) * 0.55 + 0.22;
           }
-          vec3 waterColor = shimmer > 0.62
-            ? paletteColor(${PALETTE.waterLit}.0)
-            : paletteColor(${PALETTE.waterDeep}.0);
-          if (shimmer > 0.62 && bt > 0.6) {
-            waterColor = mix(waterColor, vec3(1.0, 245.0 / 255.0, 220.0 / 255.0), 0.2);
-          }
+          // Water rides its own short ramp and is dithered exactly like the sky.
+          // A two-colour threshold here is what produced horizontal stripes.
+          float widx = (1.0 - depth) * (W_N - 1.0) * 0.42 + shimmer * (W_N - 1.0) * 0.58;
+          // glitter path beneath the sun or moon — the detail that sells water
+          float glint = max(0.0, 1.0 - abs(nx - u_orb.x) / 0.18);
+          widx += glint * glint * 2.6 * depth * u_waterBand.x;
           float waterEdge = min(1.0, (ny - u_waterBand.y) * 18.0);
           if (u_waterBand.w > 0.5) waterEdge *= min(1.0, (u_waterBand.z - ny) * 24.0);
-          col = mix(col, waterColor, u_waterBand.x * waterEdge);
+          float blended = mix(idx * (W_N - 1.0) / (G_N - 1.0), widx, u_waterBand.x * waterEdge);
+          col = ditheredRamp(${PALETTE.water}.0, W_N, blended, bt);
         }
       }
 
@@ -602,6 +626,15 @@ function buildFramePalette(current: PaletteState, output: Float32Array): void {
   const orbEdge = current.orbColor;
   const waterDeep = mix(mix(current.sky[0], [40, 70, 130], 0.35), current.plane, 0.3);
   const waterLit = mix(current.sky[2], [160, 200, 255], 0.25);
+  // Water gets its own short ramp so it is dithered like the sky rather than
+  // hard-thresholded between two colours (which produced horizontal banding).
+  const waterRamp = ramp([
+    sink(waterDeep, 0.45),
+    waterDeep,
+    mix(waterDeep, waterLit, 0.5),
+    waterLit,
+    lift(waterLit, 0.32),
+  ], WATER_STEPS);
 
   const colors = [
     ...skyRamp,
@@ -616,6 +649,7 @@ function buildFramePalette(current: PaletteState, output: Float32Array): void {
     waterDeep,
     waterLit,
     STAR,
+    ...waterRamp,
   ];
   colors.forEach((color, index) => {
     output[index * 3] = color[0];
