@@ -9,6 +9,8 @@ export interface WorldViewProps {
   daypart: Daypart;
   waymarkId: string;
   walkProgress: number; // 0..1
+  walking?: boolean;
   characterId: string;
   accentHex: string;
+  tintHex?: string;
 }

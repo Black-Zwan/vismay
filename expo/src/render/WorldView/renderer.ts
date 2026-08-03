@@ -43,6 +43,7 @@ export interface RenderInputs {
   waymarkId: string;
   walkProgress: number;
   accentHex: string;
+  tintHex?: string;
 }
 
 export interface WorldRenderer {
@@ -367,7 +368,8 @@ export function createWorldRenderer(
       const targetChanged =
         nextInputs.daypart !== inputs.daypart ||
         nextInputs.waymarkId !== inputs.waymarkId ||
-        nextInputs.accentHex !== inputs.accentHex;
+        nextInputs.accentHex !== inputs.accentHex ||
+        nextInputs.tintHex !== inputs.tintHex;
       inputs = nextInputs;
       if (targetChanged) target = buildTarget(nextInputs);
     },
@@ -387,13 +389,15 @@ export function createWorldRenderer(
 
 function buildTarget(inputs: RenderInputs): PaletteState {
   const daypart = DAYPARTS[inputs.daypart];
+  const tint = inputs.tintHex ? hx(inputs.tintHex) : null;
+  const sky = daypart.sky.map(hx) as [Rgb, Rgb, Rgb];
   return {
-    sky: daypart.sky.map(hx) as [Rgb, Rgb, Rgb],
-    plane: [...DEFAULT_PLANE],
-    path: [...DEFAULT_PATH],
+    sky: tint ? sky.map((color) => mix(color, tint, 0.45)) as [Rgb, Rgb, Rgb] : sky,
+    plane: tint ? mix(DEFAULT_PLANE, tint, 0.45) : [...DEFAULT_PLANE],
+    path: tint ? mix(DEFAULT_PATH, tint, 0.45) : [...DEFAULT_PATH],
     accent: hx(inputs.accentHex),
     orb: [...daypart.orb],
-    orbColor: hx(daypart.orbC),
+    orbColor: tint ? mix(hx(daypart.orbC), tint, 0.35) : hx(daypart.orbC),
     stars: daypart.stars,
     water: inputs.waymarkId === RIVER_WAYMARK_ID ? 1 : 0,
   };

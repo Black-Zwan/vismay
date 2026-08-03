@@ -44,7 +44,6 @@ function RootLayoutNav() {
     >
       <Stack.Screen name="onboarding" options={{ headerShown: false }} />
       <Stack.Screen name="(journey)" options={{ headerShown: false }} />
-      <Stack.Screen name="pull" options={{ headerShown: false, presentation: 'modal' }} />
       <Stack.Screen name="+not-found" options={{ title: 'Oops' }} />
       {/* index.tsx is the gate; redirect handled there */}
       <Stack.Screen name="index" options={{ headerShown: false }} />
@@ -60,11 +59,15 @@ export default function RootLayout() {
   });
   const hydrate = useStore((s) => s.hydrate);
   const hydrated = useStore((s) => s.hydrated);
+  const phase = useStore((s) => s.phase);
   const pullCardId = useStore((s) => s.pullDraft?.cardId);
   const chronicle = useStore((s) => s.chronicle);
 
   const latestEntry = chronicle[chronicle.length - 1];
-  const accent = getCard(pullCardId ?? latestEntry?.cardId ?? '')?.accentHex;
+  const revealedPullCardId = phase === 'reveal' || phase === 'reading' || phase === 'walk'
+    ? pullCardId
+    : undefined;
+  const accent = getCard(revealedPullCardId ?? latestEntry?.cardId ?? '')?.accentHex;
 
   useEffect(() => {
     configureNotifications();
@@ -89,7 +92,7 @@ export default function RootLayout() {
     <AccentColorProvider value={accent}>
       <QueryClientProvider client={queryClient}>
         <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
-          <StatusBar style="light" backgroundColor={colors.background} />
+          <StatusBar style="light" translucent backgroundColor="transparent" />
           <RootLayoutNav />
         </GestureHandlerRootView>
       </QueryClientProvider>

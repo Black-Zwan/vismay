@@ -27,12 +27,11 @@ expo/
       sign.tsx                  pick 1 of 12
     (journey)/
       _layout.tsx               tabs
-      road.tsx                  home — the world, countdown, pull entry
+      road.tsx                  home — world, countdown, and in-place pull ritual
       chronicle/index.tsx       passage list
       chronicle/[entryId].tsx   single passage
       mirror.tsx                aspects + satchel
       settings.tsx              toggles + dev panel
-    pull/                       modal stack: lens → draw → reveal → reading → close
   src/
     core/                       PURE. No React, no RN, no I/O.
       leg.ts                    walk-leg and arrival math
