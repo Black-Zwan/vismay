@@ -39,6 +39,7 @@ expo/
       mirror.ts                 aspect scoring
       ids.ts                    id generation
     content/                    static data tables + their types
+    world/                      pure seeded-world data + generation
     state/
       types.ts                  the canonical shapes
       store.ts                  Zustand store, all actions
@@ -62,12 +63,13 @@ Dependencies point downward only:
 app/        →  state/  →  core/
                   ↓         ↑
              services/   content/
-                  ↓
-             render/
+                  ↓         ↑
+             render/   → world/
 ```
 
 - **`core/` imports nothing but types.** Pure functions over plain data. If you need `Date.now()`, take a timestamp as a parameter instead.
 - **`content/` is data.** No logic beyond simple lookups (`getCard`, `waymarkAt`).
+- **`world/` is pure and deterministic.** It owns biome/archetype tables and seed functions. It has no React, React Native, I/O, clock, or network access.
 - **`state/` orchestrates.** It calls `core/` for decisions, `content/` for data, `services/` for effects. It is the only place all three meet.
 - **`app/` renders.** Screens read the store and call actions. No math, no timers, no direct storage access.
 - **`services/` wraps platform edges.** Everything that touches the OS, the network, or a vendor SDK lives here and is swappable.
@@ -103,7 +105,7 @@ interface PersistedEnvelope {
 
 Writes are debounced 400ms; there is a `flushPersistedState` for backgrounding. The `StorageBackend` interface exists so MMKV or an encrypted store can be dropped in later — use `setStorageBackend`, do not import AsyncStorage anywhere else.
 
-**Migrations.** Bump `CURRENT_SCHEMA_VERSION` and add a migration in `persistence.ts` when `AppState` changes shape. Never silently discard a user's Chronicle — that is the one piece of data in this app that is genuinely irreplaceable to them.
+**Migrations.** Bump `CURRENT_SCHEMA_VERSION` and add a migration in `persistence.ts` when `AppState` changes shape. Schema v3 adds the persisted seeded-world leg and `raresFound`. Never silently discard a user's Chronicle — that is the one piece of data in this app that is genuinely irreplaceable to them.
 
 ## Dependencies worth knowing
 

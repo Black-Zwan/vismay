@@ -48,7 +48,7 @@ export default function ChronicleScreen() {
             >
               <Panel style={styles.row}>
                 <Text variant="caption" muted>{`Day ${item.dayIndex}`}</Text>
-                <Text>{wm?.name ?? 'Waymark'} — {card?.name ?? 'Card'}</Text>
+                <Text>{item.placeName ?? wm?.name ?? 'Waymark'} — {card?.name ?? 'Card'}</Text>
                 <Text variant="caption" muted style={{ marginTop: 2 }}>
                   {lens?.label ?? 'Lens'} · {new Date(item.createdAt).toLocaleDateString()}
                 </Text>

@@ -2,6 +2,8 @@
  * Central state types. No platform imports.
  */
 
+import type { BiomeId, WorldPlace } from '@/src/world/types';
+
 export type Phase =
   | 'traveling' // walking between landmarks, no pull available
   | 'arrive' // arrived, pull available
@@ -23,6 +25,11 @@ export interface JourneyState {
   bankedArrivals: number; // 0..5
   stepsWalked: number;
   isPlus: boolean;
+  seed: number; // uint32, rolled once when this leg begins
+  biome: BiomeId;
+  previousBiome: BiomeId;
+  place: WorldPlace;
+  arrivalsSinceRare: number;
 }
 
 export interface ChronicleEntry {
@@ -36,6 +43,8 @@ export interface ChronicleEntry {
   departText: string;
   curioIds: string[];
   createdAt: number;
+  placeName?: string;
+  bucketKey?: string;
 }
 
 export type AspectId =
@@ -65,6 +74,7 @@ export interface AppState {
   journey: JourneyState;
   chronicle: ChronicleEntry[];
   mirror: MirrorState;
+  raresFound: string[];
   settings: Settings;
   devOffsetMs: number;
   schemaVersion: number;

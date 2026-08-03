@@ -7,10 +7,12 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { AppState, PersistedEnvelope, ClockGuard } from '@/src/state/types';
+import type { AppState, PersistedEnvelope, ClockGuard } from './types';
+import { hashSeed, placeFromSeed } from '../world/generator';
+import { BIOME_IDS } from '../world/data';
 
 /** Current schema version. Bump when AppState shape changes. */
-export const CURRENT_SCHEMA_VERSION = 2;
+export const CURRENT_SCHEMA_VERSION = 3;
 
 function storageKey(version: number): string {
   return `vismay_state_v${version}`;
@@ -128,6 +130,34 @@ function migrateEnvelope(envelope: PersistedEnvelope): PersistedEnvelope {
         schemaVersion: 2,
       },
       schemaVersion: 2,
+    };
+  }
+  if (current.schemaVersion < 3) {
+    const legacyJourney = current.state.journey;
+    const seed = hashSeed(
+      Math.floor(legacyJourney.legStartedAt),
+      legacyJourney.dayIndex + legacyJourney.waymarkIndex + 1,
+    );
+    const biome = BIOME_IDS[
+      ((legacyJourney.waymarkIndex % BIOME_IDS.length) + BIOME_IDS.length) % BIOME_IDS.length
+    ];
+    const place = placeFromSeed(seed, { currentBiome: biome });
+    current = {
+      ...current,
+      state: {
+        ...current.state,
+        journey: {
+          ...legacyJourney,
+          seed,
+          biome: place.biome,
+          previousBiome: place.biome,
+          place,
+          arrivalsSinceRare: place.isRare ? 0 : 1,
+        },
+        raresFound: [],
+        schemaVersion: 3,
+      },
+      schemaVersion: 3,
     };
   }
   current = {

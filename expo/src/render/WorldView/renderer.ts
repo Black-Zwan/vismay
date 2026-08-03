@@ -1,10 +1,11 @@
 import type { ExpoWebGLRenderingContext } from 'expo-gl';
 
 import { DAYPARTS } from '@/src/content/dayparts';
-import { WAYMARKS } from '@/src/content/waymarks';
 import { hx, lift, mix, ramp, sink, type Rgb } from '@/src/core/color';
 import { BAYER } from '@/src/core/dither';
 import type { Daypart } from '@/src/core/time';
+import { BIOMES } from '@/src/world/data';
+import type { BiomeId } from '@/src/world/types';
 
 import { ROAD_SCROLL_PX_PER_SECOND } from './motion';
 
@@ -18,10 +19,7 @@ const PATH_STEPS = 8;
 const COLOR_LERP = 0.045;
 const PALETTE_WIDTH = 41;
 const LEG_SCROLL_DISTANCE = 480;
-const DEFAULT_PLANE = hx('#1e1633');
-const DEFAULT_PATH = hx('#3a2c55');
 const STAR: Rgb = [255, 244, 214];
-const RIVER_WAYMARK_ID = 'grey_river_crossing';
 
 const PALETTE = {
   sky: 0,
@@ -40,7 +38,8 @@ const PALETTE = {
 
 export interface RenderInputs {
   daypart: Daypart;
-  waymarkId: string;
+  seed: number;
+  biome: BiomeId;
   walkProgress: number;
   accentHex: string;
   tintHex?: string;
@@ -83,6 +82,7 @@ const WORLD_FRAGMENT_SHADER = `
   uniform sampler2D u_bayer;
   uniform float u_time;
   uniform float u_scroll;
+  uniform float u_seed;
   uniform vec2 u_orb;
   uniform float u_stars;
   uniform float u_water;
@@ -178,12 +178,12 @@ const WORLD_FRAGMENT_SHADER = `
       }
 
       // far ridge → rolling hills → near ridge
-      float d1 = nx + sw * 0.00008;
-      float dhh = nx + sw * 0.00014;
-      float d2 = nx + sw * 0.00022;
-      float r1 = HZ - 0.1 - vnoise(d1 * 2.2, 3.1) * 0.085 - vnoise(d1 * 6.0, 9.4) * 0.024;
-      float rh = HZ - 0.072 - (sin(dhh * 5.1) * 0.5 + 0.5) * 0.04 - vnoise(dhh * 1.7, 55.5) * 0.028;
-      float r2 = HZ - 0.03 - vnoise(d2 * 3.2, 17.7) * 0.055 - vnoise(d2 * 8.5, 27.2) * 0.018;
+      float d1 = nx + sw * 0.00008 + u_seed * 0.000013;
+      float dhh = nx + sw * 0.00014 + u_seed * 0.000021;
+      float d2 = nx + sw * 0.00022 + u_seed * 0.000034;
+      float r1 = HZ - 0.1 - vnoise(d1 * 2.2, 3.1 + u_seed * 0.000017) * 0.085 - vnoise(d1 * 6.0, 9.4) * 0.024;
+      float rh = HZ - 0.072 - (sin(dhh * 5.1) * 0.5 + 0.5) * 0.04 - vnoise(dhh * 1.7, 55.5 + u_seed * 0.000011) * 0.028;
+      float r2 = HZ - 0.03 - vnoise(d2 * 3.2, 17.7 + u_seed * 0.000019) * 0.055 - vnoise(d2 * 8.5, 27.2) * 0.018;
       float edge = (bt - 0.5) * 0.008;
       if (ny + edge > r2) col = paletteColor(${PALETTE.near}.0);
       else if (ny + edge > rh) col = paletteColor(${PALETTE.hill}.0);
@@ -311,6 +311,7 @@ export function createWorldRenderer(
     bayer: requireUniform(gl, worldProgram, 'u_bayer'),
     time: requireUniform(gl, worldProgram, 'u_time'),
     scroll: requireUniform(gl, worldProgram, 'u_scroll'),
+    seed: requireUniform(gl, worldProgram, 'u_seed'),
     orb: requireUniform(gl, worldProgram, 'u_orb'),
     stars: requireUniform(gl, worldProgram, 'u_stars'),
     water: requireUniform(gl, worldProgram, 'u_water'),
@@ -340,6 +341,7 @@ export function createWorldRenderer(
     bindTexture(gl, bayerTexture, 1, worldLocations.bayer);
     gl.uniform1f(worldLocations.time, (timestamp - startedAt) / 1000);
     gl.uniform1f(worldLocations.scroll, scroll);
+    gl.uniform1f(worldLocations.seed, inputs.seed);
     gl.uniform2f(worldLocations.orb, current.orb[0], current.orb[1]);
     gl.uniform1f(worldLocations.stars, current.stars);
     gl.uniform1f(worldLocations.water, current.water);
@@ -365,12 +367,14 @@ export function createWorldRenderer(
 
   return {
     update(nextInputs) {
+      const seedChanged = nextInputs.seed !== inputs.seed;
       const targetChanged =
         nextInputs.daypart !== inputs.daypart ||
-        nextInputs.waymarkId !== inputs.waymarkId ||
+        nextInputs.biome !== inputs.biome ||
         nextInputs.accentHex !== inputs.accentHex ||
         nextInputs.tintHex !== inputs.tintHex;
       inputs = nextInputs;
+      if (seedChanged) scroll = scrollDistance(nextInputs);
       if (targetChanged) target = buildTarget(nextInputs);
     },
     dispose() {
@@ -389,17 +393,20 @@ export function createWorldRenderer(
 
 function buildTarget(inputs: RenderInputs): PaletteState {
   const daypart = DAYPARTS[inputs.daypart];
+  const biome = BIOMES[inputs.biome];
   const tint = inputs.tintHex ? hx(inputs.tintHex) : null;
   const sky = daypart.sky.map(hx) as [Rgb, Rgb, Rgb];
+  const planeBase = mix(hx(biome.ground[1]), sky[2], 0.1 * biome.light);
+  const pathBase = mix(hx(biome.path[1]), sky[2], 0.08 * biome.light);
   return {
     sky: tint ? sky.map((color) => mix(color, tint, 0.45)) as [Rgb, Rgb, Rgb] : sky,
-    plane: tint ? mix(DEFAULT_PLANE, tint, 0.45) : [...DEFAULT_PLANE],
-    path: tint ? mix(DEFAULT_PATH, tint, 0.45) : [...DEFAULT_PATH],
+    plane: tint ? mix(planeBase, tint, 0.32) : planeBase,
+    path: tint ? mix(pathBase, tint, 0.32) : pathBase,
     accent: hx(inputs.accentHex),
     orb: [...daypart.orb],
     orbColor: tint ? mix(hx(daypart.orbC), tint, 0.35) : hx(daypart.orbC),
     stars: daypart.stars,
-    water: inputs.waymarkId === RIVER_WAYMARK_ID ? 1 : 0,
+    water: inputs.biome === 'river_vale' ? 1 : 0,
   };
 }
 
@@ -480,8 +487,8 @@ function buildFramePalette(current: PaletteState, output: Float32Array): void {
 }
 
 function scrollDistance(inputs: RenderInputs): number {
-  const waymarkIndex = Math.max(0, WAYMARKS.findIndex((waymark) => waymark.id === inputs.waymarkId));
-  return (waymarkIndex + clamp01(inputs.walkProgress)) * LEG_SCROLL_DISTANCE;
+  const seedOffset = (inputs.seed >>> 0) / 0x1_0000_0000;
+  return (seedOffset + clamp01(inputs.walkProgress)) * LEG_SCROLL_DISTANCE;
 }
 
 function makeProgram(

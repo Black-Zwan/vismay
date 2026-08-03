@@ -3,10 +3,11 @@ import { Animated, Easing, StyleSheet, View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { DAYPARTS } from '@/src/content/dayparts';
-import { WAYMARKS } from '@/src/content/waymarks';
 import { hx, mix, sink, type Rgb } from '@/src/core/color';
-import { hash2 } from '@/src/core/noise';
 import type { Daypart } from '@/src/core/time';
+import { BIOMES } from '@/src/world/data';
+import { propsFromSeed, unitFromSeed } from '@/src/world/generator';
+import type { BiomeId, WorldPropKind } from '@/src/world/types';
 
 import { ROAD_SCROLL_PX_PER_SECOND } from './motion';
 
@@ -14,22 +15,6 @@ const HORIZON = 0.54;
 const HORIZON_PCT = (1 - HORIZON) * 100;
 const STRIP_WIDTH = 1_200;
 const PALETTE_EASE_MS = 1_400;
-const DEFAULT_PLANE: Rgb = hx('#1e1633');
-
-const REGION_KINDS: PropKind[][] = [
-  ['pine', 'stone', 'post', 'shrine', 'stone', 'lantern'],
-  ['pine', 'shrine', 'stone', 'shrine', 'post', 'lantern'],
-  ['post', 'stone', 'pine', 'post', 'lantern', 'shrine'],
-  ['stone', 'stone', 'shrine', 'post', 'stone', 'pine'],
-  ['lantern', 'stone', 'lantern', 'post', 'shrine', 'pine'],
-  ['stone', 'shrine', 'stone', 'post', 'lantern', 'pine'],
-  ['stone', 'shrine', 'post', 'lantern', 'stone', 'pine'],
-  ['stone', 'post', 'lantern', 'shrine', 'stone', 'pine'],
-  ['pine', 'stone', 'post', 'lantern', 'stone', 'shrine'],
-  ['stone', 'post', 'shrine', 'post', 'lantern', 'pine'],
-  ['stone', 'post', 'shrine', 'stone', 'lantern', 'pine'],
-  ['shroom', 'shroom', 'lantern', 'shroom', 'stone', 'pine'],
-];
 
 const LAYERS = {
   far: {
@@ -66,21 +51,26 @@ const LAYERS = {
   },
 } as const;
 
-const PROP_HEIGHT_MULTIPLIER: Record<PropKind, number> = {
+const PROP_HEIGHT_MULTIPLIER: Record<WorldPropKind, number> = {
   pine: 1,
   lantern: 0.95,
   shrine: 0.62,
   post: 0.54,
   shroom: 0.32,
   stone: 0.58,
+  willow: 1,
+  deadtree: 1,
+  boulder: 0.7,
+  bone: 0.42,
+  spire: 0.7,
+  obelisk: 0.7,
 };
 
-type PropKind = 'pine' | 'lantern' | 'shrine' | 'post' | 'shroom' | 'stone';
 type LayerKey = keyof typeof LAYERS;
 
 type PropPlacement = {
   x: number;
-  kind: PropKind;
+  kind: WorldPropKind;
   height: number;
   bottom: number;
 };
@@ -94,7 +84,8 @@ type PropPalette = {
 
 type PropLayersProps = {
   daypart: Daypart;
-  waymarkId: string;
+  seed: number;
+  biome: BiomeId;
   accentHex: string;
   tintHex?: string;
   walking: boolean;
@@ -103,41 +94,43 @@ type PropLayersProps = {
 
 export function PropLayers({
   daypart,
-  waymarkId,
+  seed,
+  biome,
   accentHex,
   tintHex,
   walking,
   children,
 }: PropLayersProps) {
-  const region = Math.max(0, WAYMARKS.findIndex((waymark) => waymark.id === waymarkId));
-  const palette = useEasedPropPalette(daypart, accentHex, tintHex);
+  const palette = useEasedPropPalette(daypart, biome, accentHex, tintHex);
 
   return (
     <View style={styles.root}>
-      <ParallaxBand layer="far" region={region} fill={rgbCss(palette.far)} accent={rgbCss(palette.accent)} walking={walking} />
-      <ParallaxBand layer="mid" region={region} fill={rgbCss(palette.far)} accent={rgbCss(palette.accent)} walking={walking} />
-      <ParallaxBand layer="near" region={region} fill={rgbCss(palette.near)} accent={rgbCss(palette.accent)} walking={walking} />
+      <ParallaxBand layer="far" seed={seed} biome={biome} fill={rgbCss(palette.far)} accent={rgbCss(palette.accent)} walking={walking} />
+      <ParallaxBand layer="mid" seed={seed} biome={biome} fill={rgbCss(palette.far)} accent={rgbCss(palette.accent)} walking={walking} />
+      <ParallaxBand layer="near" seed={seed} biome={biome} fill={rgbCss(palette.near)} accent={rgbCss(palette.accent)} walking={walking} />
       {children}
-      <ParallaxBand layer="foreground" region={region} fill={rgbCss(palette.foreground)} accent={rgbCss(palette.accent)} walking={walking} />
+      <ParallaxBand layer="foreground" seed={seed} biome={biome} fill={rgbCss(palette.foreground)} accent={rgbCss(palette.accent)} walking={walking} />
     </View>
   );
 }
 
 function ParallaxBand({
   layer,
-  region,
+  seed,
+  biome,
   fill,
   accent,
   walking,
 }: {
   layer: LayerKey;
-  region: number;
+  seed: number;
+  biome: BiomeId;
   fill: string;
   accent: string;
   walking: boolean;
 }) {
   const config = LAYERS[layer];
-  const placements = useMemo(() => makeLayer(region, layer), [layer, region]);
+  const placements = useMemo(() => makeLayer(seed, biome, layer), [biome, layer, seed]);
   const translateX = useParallaxOffset(config.speed, walking);
 
   return (
@@ -210,19 +203,19 @@ function useParallaxOffset(speed: number, walking: boolean): Animated.Value {
   return offset;
 }
 
-function makeLayer(region: number, layer: LayerKey): PropPlacement[] {
+function makeLayer(seed: number, biome: BiomeId, layer: LayerKey): PropPlacement[] {
   const config = LAYERS[layer];
-  const table = REGION_KINDS[region % REGION_KINDS.length];
+  const layerIndex = Object.keys(LAYERS).indexOf(layer);
 
   return Array.from({ length: config.count }, (_, index) => {
-    const random = (salt: number) => hash2(index * 17.3 + region * 71.7 + config.seed, salt);
-    const kind = index % 4 === 0
-      ? 'pine'
-      : table[Math.floor(random(2) * table.length)];
-    const size = config.size[0] + random(3) * (config.size[1] - config.size[0]);
+    const slot = layerIndex * 100 + index;
+    const placement = propsFromSeed(seed, slot, biome);
+    const random = (salt: number) => unitFromSeed(seed, slot * 11 + salt);
+    const kind = placement.kind;
+    const size = config.size[0] + placement.size / 1.3 * (config.size[1] - config.size[0]);
 
     return {
-      x: (index / config.count) * STRIP_WIDTH + random(1) * (STRIP_WIDTH / config.count) * 0.7,
+      x: (index / config.count) * STRIP_WIDTH + placement.x * (STRIP_WIDTH / config.count) * 0.7,
       kind,
       height: size * PROP_HEIGHT_MULTIPLIER[kind],
       bottom: config.bottom[0] + random(4) * (config.bottom[1] - config.bottom[0]),
@@ -236,12 +229,12 @@ function PropArt({
   fill,
   accent,
 }: {
-  kind: PropKind;
+  kind: WorldPropKind;
   height: number;
   fill: string;
   accent: string;
 }) {
-  if (kind === 'stone') {
+  if (kind === 'stone' || kind === 'boulder' || kind === 'bone') {
     return (
       <View
         style={{
@@ -265,7 +258,7 @@ function PropArt({
     );
   }
 
-  if (kind === 'post') {
+  if (kind === 'post' || kind === 'obelisk' || kind === 'spire') {
     return (
       <Svg width={height * 0.6} height={height} viewBox="0 0 30 60">
         <Rect x="13" y="6" width="4" height="54" fill={fill} />
@@ -288,7 +281,7 @@ function PropArt({
   }
 
   const tree = <Pine height={height} fill={fill} />;
-  if (kind === 'pine') return tree;
+  if (kind === 'pine' || kind === 'willow' || kind === 'deadtree') return tree;
 
   return (
     <View style={{ width: height * 0.62, height }}>
@@ -324,12 +317,13 @@ function Pine({ height, fill }: { height: number; fill: string }) {
 
 function useEasedPropPalette(
   daypart: Daypart,
+  biome: BiomeId,
   accentHex: string,
   tintHex?: string,
 ): PropPalette {
   const target = useMemo(
-    () => makePropPalette(daypart, accentHex, tintHex),
-    [accentHex, daypart, tintHex],
+    () => makePropPalette(daypart, biome, accentHex, tintHex),
+    [accentHex, biome, daypart, tintHex],
   );
   const currentRef = useRef<PropPalette>(target);
   const [current, setCurrent] = useState<PropPalette>(target);
@@ -355,10 +349,16 @@ function useEasedPropPalette(
   return current;
 }
 
-function makePropPalette(daypart: Daypart, accentHex: string, tintHex?: string): PropPalette {
+function makePropPalette(
+  daypart: Daypart,
+  biome: BiomeId,
+  accentHex: string,
+  tintHex?: string,
+): PropPalette {
   const sky = DAYPARTS[daypart].sky.map(hx) as [Rgb, Rgb, Rgb];
   const tint = tintHex ? hx(tintHex) : null;
-  const plane = tint ? mix(DEFAULT_PLANE, tint, 0.45) : DEFAULT_PLANE;
+  const biomePlane = hx(BIOMES[biome].ground[1]);
+  const plane = tint ? mix(biomePlane, tint, 0.32) : biomePlane;
   const tintedSky = tint ? sky.map((color) => mix(color, tint, 0.45)) as [Rgb, Rgb, Rgb] : sky;
   const far = mix(mix(tintedSky[1], plane, 0.5), tintedSky[2], 0.28);
   return {

@@ -7,12 +7,15 @@
 ```ts
 interface WorldViewProps {
   daypart: Daypart;
-  waymarkId: string;
+  seed: number;
+  biome: BiomeId;
   walkProgress: number;   // 0..1
   characterId: string;
   accentHex: string;      // the day's card accent
 }
 ```
+
+`seed` fixes ridge and prop layout for the complete leg. `biome` changes at mid-leg and its ground/path/prop palette eases independently of the daypart sky.
 
 The current implementation is a colored `View` with the landmark name and a moving dot. That is correct for now. **The implementation is temporary; the interface is not.** If you find yourself wanting to add a prop, ask whether the caller should really know that.
 

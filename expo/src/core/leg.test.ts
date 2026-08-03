@@ -7,11 +7,13 @@ import {
   legDurationMs,
 } from './leg';
 import type { JourneyState } from '../state/types';
+import { placeFromSeed } from '../world/generator';
 
 const START = 1_000_000;
 
 function makeJourney(overrides: Partial<JourneyState> = {}): JourneyState {
   const duration = legDurationMs(false, false);
+  const place = placeFromSeed(42, { biome: 'pinelands' });
   return {
     characterId: 'rowan',
     signId: 'aries',
@@ -23,6 +25,11 @@ function makeJourney(overrides: Partial<JourneyState> = {}): JourneyState {
     bankedArrivals: 0,
     stepsWalked: 0,
     isPlus: false,
+    seed: 42,
+    biome: 'pinelands',
+    previousBiome: 'pinelands',
+    place,
+    arrivalsSinceRare: place.isRare ? 0 : 1,
     ...overrides,
   };
 }

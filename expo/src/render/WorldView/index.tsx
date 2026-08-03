@@ -14,7 +14,8 @@ export { CharacterPreview } from './CharacterSprite';
 
 export function WorldView({
   daypart,
-  waymarkId,
+  seed,
+  biome,
   walkProgress,
   walking: walkingOverride,
   characterId,
@@ -22,15 +23,15 @@ export function WorldView({
   tintHex,
 }: WorldViewProps) {
   const rendererRef = useRef<WorldRenderer | null>(null);
-  const inputsRef = useRef({ daypart, waymarkId, walkProgress, accentHex, tintHex });
+  const inputsRef = useRef({ daypart, seed, biome, walkProgress, accentHex, tintHex });
   const [rendererFailed, setRendererFailed] = useState(false);
   const walking = walkingOverride ?? walkProgress < 1;
 
-  inputsRef.current = { daypart, waymarkId, walkProgress, accentHex, tintHex };
+  inputsRef.current = { daypart, seed, biome, walkProgress, accentHex, tintHex };
 
   useEffect(() => {
     rendererRef.current?.update(inputsRef.current);
-  }, [accentHex, daypart, tintHex, walkProgress, waymarkId]);
+  }, [accentHex, biome, daypart, seed, tintHex, walkProgress]);
 
   useEffect(() => () => rendererRef.current?.dispose(), []);
 
@@ -58,7 +59,8 @@ export function WorldView({
       )}
       <PropLayers
         daypart={daypart}
-        waymarkId={waymarkId}
+        seed={seed}
+        biome={biome}
         accentHex={tintHex ?? accentHex}
         tintHex={tintHex}
         walking={walking}

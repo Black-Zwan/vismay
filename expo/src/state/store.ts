@@ -54,7 +54,15 @@ import { DEFAULT_SIGN_ID, getSign } from '@/src/content/signs';
 import { getCard, pickCardForPull } from '@/src/content/cards';
 import { getLens } from '@/src/content/lenses';
 import { ANSWERS, OPENERS } from '@/src/content/passages';
-import { getWaymark, nextWaymarkIndex, waymarkAt } from '@/src/content/waymarks';
+import { getWaymark } from '@/src/content/waymarks';
+import { BIOME_IDS } from '@/src/world/data';
+import {
+  biomeForProgress,
+  placeFromSeed,
+  shouldGuaranteeFirstRare,
+  unitFromSeed,
+} from '@/src/world/generator';
+import type { BiomeId } from '@/src/world/types';
 
 /** Transient pull-in-progress data (not persisted; rebuilt from phase if needed). */
 interface PullDraft {
@@ -101,12 +109,21 @@ export interface StoreState extends AppState {
   devToggleFastLegs: (on: boolean) => void;
   devTogglePlus: (on: boolean) => void;
   devForceDaypart: (part: Daypart | null) => void;
+  devForceRare: () => void;
+  devRerollSeed: () => void;
+  devJumpBiome: () => void;
+}
+
+function rollLegSeed(): number {
+  return Math.floor(Math.random() * 2 ** 32) >>> 0;
 }
 
 /** Build the default initial AppState. */
 function defaultAppState(): AppState {
   const timestamp = now();
   const duration = legDurationMs(false, false);
+  const seed = 0;
+  const place = placeFromSeed(seed, { biome: 'pinelands' });
   return {
     phase: 'traveling',
     onboarded: false,
@@ -121,6 +138,11 @@ function defaultAppState(): AppState {
       bankedArrivals: 0,
       stepsWalked: 0,
       isPlus: false,
+      seed,
+      biome: place.biome,
+      previousBiome: place.biome,
+      place,
+      arrivalsSinceRare: place.isRare ? 0 : 1,
     },
     chronicle: [],
     mirror: {
@@ -129,6 +151,7 @@ function defaultAppState(): AppState {
       lensHistory: [],
       recentPulls: [],
     },
+    raresFound: [],
     settings: {
       notifyArrival: true,
       notifyWeekly: false,
@@ -220,6 +243,8 @@ export const useStore = create<StoreState>((set, get) => ({
     const timestamp = now();
     const duration = legDurationMs(get().journey.isPlus, get().devFastLegs);
     const selectedSignId = signId || DEFAULT_SIGN_ID;
+    const seed = rollLegSeed();
+    const place = placeFromSeed(seed, { biome: 'pinelands' });
     const journey = {
       ...get().journey,
       characterId: characterId || DEFAULT_CHARACTER_ID,
@@ -231,12 +256,18 @@ export const useStore = create<StoreState>((set, get) => ({
       dayIndex: 0,
       waymarkIndex: 0,
       stepsWalked: 0,
+      seed,
+      biome: place.biome,
+      previousBiome: place.biome,
+      place,
+      arrivalsSinceRare: place.isRare ? 0 : 1,
     };
     set({
       onboarded: true,
       phase: 'traveling',
       journey,
       mirror: defaultMirror(selectedSignId),
+      raresFound: [],
     });
     runNotifyEffect(get(), get().devFastLegs);
     void persistState(getAppState(get()), get().clockGuard);
@@ -274,9 +305,13 @@ export const useStore = create<StoreState>((set, get) => ({
             ? 'arrive'
             : 'traveling';
 
+    const discoveredRare = updated.bankedArrivals > 0
+      ? addRare(state.raresFound, state.journey.place.rareId)
+      : state.raresFound;
     set({
       journey: { ...updated, stepsWalked: steps },
       phase,
+      raresFound: discoveredRare,
       clockGuard: {
         lastSeenTimestamp: timestamp,
         monotonicCounter: state.clockGuard.monotonicCounter + 1,
@@ -292,7 +327,11 @@ export const useStore = create<StoreState>((set, get) => ({
   beginPull: () => {
     const state = get();
     if (state.phase !== 'arrive') return;
-    set({ phase: 'question', pullDraft: null });
+    set({
+      phase: 'question',
+      pullDraft: null,
+      raresFound: addRare(state.raresFound, state.journey.place.rareId),
+    });
   },
 
   chooseLens: (lensId) => {
@@ -300,9 +339,9 @@ export const useStore = create<StoreState>((set, get) => ({
     if (state.phase !== 'question') return;
     const lens = getLens(lensId);
     if (!lens) return;
-    const card = pickCardForPull();
-    const wm = waymarkAt(state.journey.waymarkIndex);
-    const openerText = `${wm.name} — ${lens.label}`;
+    const card = pickCardForPull(unitFromSeed(state.journey.seed, 0xca4d));
+    const place = state.journey.place;
+    const openerText = `${place.name} — ${lens.label}`;
     const answerText = card.readings[lensId] ?? 'Placeholder reading.';
     set({
       phase: 'draw',
@@ -342,7 +381,7 @@ export const useStore = create<StoreState>((set, get) => ({
       return;
     }
 
-    const wm = waymarkAt(state.journey.waymarkIndex);
+    const place = state.journey.place;
     const entryDay = state.journey.dayIndex + 1;
     const templateIndex = state.journey.dayIndex;
     const passage = assemblePassage(
@@ -350,21 +389,23 @@ export const useStore = create<StoreState>((set, get) => ({
       ANSWERS[templateIndex % ANSWERS.length],
       {
         day: entryDay,
-        place: wm.name,
+        place: place.name,
         epigraph: card.epigraph,
       },
     );
     const entry: ChronicleEntry = {
       id: makeId('entry'),
       dayIndex: entryDay,
-      waymarkId: wm.id,
+      waymarkId: place.bucketKey,
       cardId: card.id,
       lensId: lens.id,
       openerText: passage.openerText,
       answerText: passage.answerText,
-      departText: wm.departText,
+      departText: place.departText,
       curioIds: [],
       createdAt: timestamp,
+      placeName: place.name,
+      bucketKey: place.bucketKey,
     };
     const recentPulls = [
       { cardId: card.id, lensId: lens.id, at: timestamp },
@@ -375,11 +416,30 @@ export const useStore = create<StoreState>((set, get) => ({
     // Consume a banked arrival for this pull.
     let journey = consumeBankedArrival(state.journey);
 
-    // Advance to the next waymark.
+    const nextPlaceIndex = journey.waymarkIndex + 1;
+    const seed = rollLegSeed();
+    const forceFirstRare = shouldGuaranteeFirstRare(
+      state.raresFound.length > 0,
+      nextPlaceIndex,
+    );
+    const nextPlace = placeFromSeed(seed, {
+      currentBiome: journey.biome,
+      forceRare: forceFirstRare,
+      arrivalsSinceRare: journey.arrivalsSinceRare,
+    });
+
+    // Advance to the next generated place. waymarkIndex remains as the
+    // persisted arrival counter for migration compatibility; it no longer
+    // indexes a fixed content sequence.
     journey = {
       ...journey,
       dayIndex: journey.dayIndex + 1,
-      waymarkIndex: nextWaymarkIndex(journey.waymarkIndex),
+      waymarkIndex: nextPlaceIndex,
+      seed,
+      previousBiome: journey.biome,
+      biome: nextPlace.biome,
+      place: nextPlace,
+      arrivalsSinceRare: nextPlace.isRare ? 0 : journey.arrivalsSinceRare + 1,
     };
 
     // If more banked arrivals remain, start a leg but it will resolve to an
@@ -428,7 +488,11 @@ export const useStore = create<StoreState>((set, get) => ({
       legStartedAt: timestamp - state.journey.legDurationMs,
       arrivalAt: timestamp,
     };
-    set({ journey, phase: 'arrive' });
+    set({
+      journey,
+      phase: 'arrive',
+      raresFound: addRare(state.raresFound, state.journey.place.rareId),
+    });
     runNotifyEffect(get(), get().devFastLegs);
     void persistState(getAppState(get()), get().clockGuard);
   },
@@ -478,7 +542,58 @@ export const useStore = create<StoreState>((set, get) => ({
   devForceDaypart: (part) => {
     DEV_DAYPART_OVERRIDE.current = part;
   },
+
+  devForceRare: () => {
+    const state = get();
+    const place = placeFromSeed(state.journey.seed, {
+      biome: state.journey.biome,
+      forceRare: true,
+    });
+    set({ journey: { ...state.journey, place, arrivalsSinceRare: 0 } });
+    void persistState(getAppState(get()), get().clockGuard);
+  },
+
+  devRerollSeed: () => {
+    const state = get();
+    const seed = rollLegSeed();
+    const place = placeFromSeed(seed, {
+      currentBiome: state.journey.biome,
+      arrivalsSinceRare: state.journey.arrivalsSinceRare,
+    });
+    set({
+      journey: {
+        ...state.journey,
+        seed,
+        previousBiome: place.biome,
+        biome: place.biome,
+        place,
+        arrivalsSinceRare: place.isRare ? 0 : state.journey.arrivalsSinceRare + 1,
+      },
+    });
+    void persistState(getAppState(get()), get().clockGuard);
+  },
+
+  devJumpBiome: () => {
+    const state = get();
+    const currentIndex = BIOME_IDS.indexOf(state.journey.biome);
+    const biome = BIOME_IDS[(currentIndex + 1) % BIOME_IDS.length];
+    const place = placeFromSeed(state.journey.seed, { biome });
+    set({
+      journey: {
+        ...state.journey,
+        previousBiome: biome,
+        biome,
+        place,
+      },
+    });
+    void persistState(getAppState(get()), get().clockGuard);
+  },
 }));
+
+function addRare(raresFound: string[], rareId: string | null): string[] {
+  if (!rareId || raresFound.includes(rareId)) return raresFound;
+  return [...raresFound, rareId];
+}
 
 /** Extract just the persisted AppState slice from the store. */
 function getAppState(s: StoreState): AppState {
@@ -488,6 +603,7 @@ function getAppState(s: StoreState): AppState {
     journey: s.journey,
     chronicle: s.chronicle,
     mirror: s.mirror,
+    raresFound: s.raresFound,
     settings: s.settings,
     devOffsetMs: s.settings.devMode ? s.devOffsetMs : 0,
     schemaVersion: s.schemaVersion,
@@ -503,8 +619,16 @@ export function selectDaypart(now: number): Daypart {
   return daypartFromTimestamp(now);
 }
 
-export function selectCurrentWaymark(s: StoreState) {
-  return waymarkAt(s.journey.waymarkIndex);
+export function selectCurrentPlace(s: StoreState) {
+  return s.journey.place;
+}
+
+export function selectRenderedBiome(journey: JourneyState, timestamp: number): BiomeId {
+  return biomeForProgress(
+    journey.previousBiome,
+    journey.biome,
+    walkProgress(journey, timestamp),
+  );
 }
 
 export function selectCharacterAccent(s: StoreState): string {

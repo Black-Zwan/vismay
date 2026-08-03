@@ -44,7 +44,7 @@ export default function EntryScreen() {
     <ScrollView style={styles.root} contentContainerStyle={{ padding: spacing.md, gap: spacing.md }}>
       <Panel>
         <Text variant="caption" muted>{`Day ${entry.dayIndex}`}</Text>
-        <Text variant="display">{wm?.name ?? 'Waymark'}</Text>
+        <Text variant="display">{entry.placeName ?? wm?.name ?? 'Waymark'}</Text>
         <Text muted style={{ marginTop: 2 }}>
           {card?.name ?? 'Card'} · {lens?.label ?? 'Lens'}
         </Text>

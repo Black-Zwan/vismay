@@ -4,10 +4,12 @@
  */
 
 import type { Daypart } from '@/src/core/time';
+import type { BiomeId } from '@/src/world/types';
 
 export interface WorldViewProps {
   daypart: Daypart;
-  waymarkId: string;
+  seed: number;
+  biome: BiomeId;
   walkProgress: number; // 0..1
   walking?: boolean;
   characterId: string;
