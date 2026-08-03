@@ -68,6 +68,10 @@ const PROP_HEIGHT_MULTIPLIER: Record<WorldPropKind, number> = {
   obelisk: 0.7,
   palm: 1,
   wagon: 0.68,
+  driftwood: 0.34,
+  hull: 0.72,
+  fern: 0.52,
+  vine: 0.88,
 };
 
 type LayerKey = keyof typeof LAYERS;
@@ -96,6 +100,8 @@ type PropLayersProps = {
   accentHex: string;
   tintHex?: string;
   walking: boolean;
+  sceneProgress: number;
+  sceneProps: readonly WorldPropKind[] | null;
   children: React.ReactNode;
 };
 
@@ -108,23 +114,25 @@ export function PropLayers({
   accentHex,
   tintHex,
   walking,
+  sceneProgress,
+  sceneProps,
   children,
 }: PropLayersProps) {
   const palette = useEasedPropPalette(daypart, biome, accentHex, tintHex);
 
   return (
     <View style={styles.root}>
-      <ParallaxBand layer="far" seed={seed} biome={biome} fill={rgbCss(palette.far)} highlight={rgbCss(palette.highlight)} accent={rgbCss(palette.accent)} walking={walking} />
-      <ParallaxBand layer="mid" seed={seed} biome={biome} fill={rgbCss(palette.far)} highlight={rgbCss(palette.highlight)} accent={rgbCss(palette.accent)} walking={walking} />
-      <ParallaxBand layer="near" seed={seed} biome={biome} fill={rgbCss(palette.near)} highlight={rgbCss(palette.highlight)} accent={rgbCss(palette.accent)} walking={walking} />
+      <ParallaxBand layer="far" seed={seed} biome={biome} sceneProps={sceneProps} fill={rgbCss(palette.far)} highlight={rgbCss(palette.highlight)} accent={rgbCss(palette.accent)} walking={walking} />
+      <ParallaxBand layer="mid" seed={seed} biome={biome} sceneProps={sceneProps} fill={rgbCss(palette.far)} highlight={rgbCss(palette.highlight)} accent={rgbCss(palette.accent)} walking={walking} />
+      <ParallaxBand layer="near" seed={seed} biome={biome} sceneProps={sceneProps} fill={rgbCss(palette.near)} highlight={rgbCss(palette.highlight)} accent={rgbCss(palette.accent)} walking={walking} />
       <LandmarkApproach
         archetypeId={archetypeId}
-        walkProgress={walkProgress}
+        walkProgress={sceneProgress}
         bodyColor={rgbCss(palette.near)}
         highlightColor={rgbCss(palette.highlight)}
       />
       {children}
-      <ParallaxBand layer="foreground" seed={seed} biome={biome} fill={rgbCss(palette.foreground)} highlight={rgbCss(palette.highlight)} accent={rgbCss(palette.accent)} walking={walking} />
+      <ParallaxBand layer="foreground" seed={seed} biome={biome} sceneProps={sceneProps} fill={rgbCss(palette.foreground)} highlight={rgbCss(palette.highlight)} accent={rgbCss(palette.accent)} walking={walking} />
     </View>
   );
 }
@@ -151,6 +159,7 @@ function ParallaxBand({
   layer,
   seed,
   biome,
+  sceneProps,
   fill,
   highlight,
   accent,
@@ -159,13 +168,17 @@ function ParallaxBand({
   layer: LayerKey;
   seed: number;
   biome: BiomeId;
+  sceneProps: readonly WorldPropKind[] | null;
   fill: string;
   highlight: string;
   accent: string;
   walking: boolean;
 }) {
   const config = LAYERS[layer];
-  const placements = useMemo(() => makeLayer(seed, biome, layer), [biome, layer, seed]);
+  const placements = useMemo(
+    () => makeLayer(seed, biome, layer, sceneProps),
+    [biome, layer, sceneProps, seed],
+  );
   const translateX = useParallaxOffset(config.speed, walking);
 
   return (
@@ -238,7 +251,12 @@ function useParallaxOffset(speed: number, walking: boolean): Animated.Value {
   return offset;
 }
 
-function makeLayer(seed: number, biome: BiomeId, layer: LayerKey): PropPlacement[] {
+function makeLayer(
+  seed: number,
+  biome: BiomeId,
+  layer: LayerKey,
+  sceneProps: readonly WorldPropKind[] | null,
+): PropPlacement[] {
   const config = LAYERS[layer];
   const layerIndex = Object.keys(LAYERS).indexOf(layer);
 
@@ -246,7 +264,7 @@ function makeLayer(seed: number, biome: BiomeId, layer: LayerKey): PropPlacement
     const slot = layerIndex * 100 + index;
     const placement = propsFromSeed(seed, slot, biome);
     const random = (salt: number) => unitFromSeed(seed, slot * 11 + salt);
-    const kind = placement.kind;
+    const kind = sceneProps?.[Math.floor(random(9) * sceneProps.length)] ?? placement.kind;
     const size = config.size[0] + placement.size / 1.3 * (config.size[1] - config.size[0]);
 
     return {
@@ -336,6 +354,38 @@ function PropArt({
   if (kind === 'palm') return tree;
   if (kind === 'wagon') {
     return <View style={{ width: height * 0.9, height: height * 0.42, borderRadius: 2, backgroundColor: fill }} />;
+  }
+
+  if (kind === 'driftwood') {
+    return (
+      <Svg width={height * 1.8} height={height} viewBox="0 0 90 50">
+        <Path d="M3 39 Q24 27 43 31 Q62 34 87 14 L83 24 Q63 42 40 39 Q20 36 5 47 Z" fill={fill} />
+        <Path d="M42 32 Q34 17 21 11" fill="none" stroke={highlight} strokeWidth="4" />
+      </Svg>
+    );
+  }
+  if (kind === 'hull') {
+    return (
+      <Svg width={height * 1.25} height={height} viewBox="0 0 75 60">
+        <Path d="M4 28 Q37 48 71 20 Q65 55 39 58 Q13 54 4 28 Z" fill={fill} />
+        <Path d="M16 31 Q38 42 61 26 M24 37 L20 50 M43 39 L45 54" fill="none" stroke={highlight} strokeWidth="3" />
+      </Svg>
+    );
+  }
+  if (kind === 'fern') {
+    return (
+      <Svg width={height} height={height} viewBox="0 0 60 60">
+        <Path d="M30 58 Q29 29 31 7 M30 30 Q17 20 5 23 M30 37 Q44 25 55 29 M30 44 Q17 37 8 42" fill="none" stroke={fill} strokeWidth="6" />
+      </Svg>
+    );
+  }
+  if (kind === 'vine') {
+    return (
+      <Svg width={height * 0.48} height={height} viewBox="0 0 30 90">
+        <Path d="M12 0 Q27 18 10 35 Q-2 49 17 66 Q26 76 15 90" fill="none" stroke={fill} strokeWidth="5" />
+        <Circle cx="19" cy="21" r="5" fill={highlight} /><Circle cx="8" cy="53" r="4" fill={highlight} />
+      </Svg>
+    );
   }
 
   return (

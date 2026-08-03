@@ -8,11 +8,13 @@ import {
 } from './renderer';
 import { CharacterSprite } from './CharacterSprite';
 import { PropLayers } from './PropLayers';
+import { sceneIdForRare, sceneProps } from './scenes';
 import type { WorldViewProps } from './types';
 
 export { CharacterPreview } from './CharacterSprite';
 export { WorldPropSpriteQa } from './PropLayers';
 export { PassageShareCard, SHARE_CARD_SIZE, type ShareCardShape } from './PassageShareCard';
+export { SCENE_IDS } from './scenes';
 
 export function WorldView({
   daypart,
@@ -24,30 +26,38 @@ export function WorldView({
   characterId,
   accentHex,
   tintHex,
+  rareId,
+  forcedSceneId,
+  forcedApproachProgress,
+  onFps,
 }: WorldViewProps) {
+  const realSceneId = sceneIdForRare(rareId);
+  const sceneId = forcedSceneId ?? realSceneId;
+  const sceneProgress = forcedSceneId ? forcedApproachProgress ?? 1 : walkProgress;
+  const props = sceneProps(sceneId, sceneProgress);
   const rendererRef = useRef<WorldRenderer | null>(null);
-  const inputsRef = useRef({ daypart, seed, biome, walkProgress, accentHex, tintHex });
+  const inputsRef = useRef({ daypart, seed, biome, walkProgress: sceneProgress, accentHex, tintHex, sceneId });
   const [rendererFailed, setRendererFailed] = useState(false);
   const walking = walkingOverride ?? walkProgress < 1;
 
-  inputsRef.current = { daypart, seed, biome, walkProgress, accentHex, tintHex };
+  inputsRef.current = { daypart, seed, biome, walkProgress: sceneProgress, accentHex, tintHex, sceneId };
 
   useEffect(() => {
     rendererRef.current?.update(inputsRef.current);
-  }, [accentHex, biome, daypart, seed, tintHex, walkProgress]);
+  }, [accentHex, biome, daypart, sceneId, sceneProgress, seed, tintHex]);
 
   useEffect(() => () => rendererRef.current?.dispose(), []);
 
   const onContextCreate = useCallback((gl: ExpoWebGLRenderingContext) => {
     try {
       rendererRef.current?.dispose();
-      rendererRef.current = createWorldRenderer(gl, inputsRef.current);
+      rendererRef.current = createWorldRenderer(gl, inputsRef.current, onFps);
       setRendererFailed(false);
     } catch (error) {
       console.warn('[WorldView] GL renderer unavailable', error);
       setRendererFailed(true);
     }
-  }, []);
+  }, [onFps]);
 
   return (
     <View style={styles.root}>
@@ -69,6 +79,8 @@ export function WorldView({
         accentHex={tintHex ?? accentHex}
         tintHex={tintHex}
         walking={walking}
+        sceneProgress={sceneProgress}
+        sceneProps={props}
       >
         <View style={styles.character}>
           <CharacterSprite

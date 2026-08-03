@@ -10,6 +10,7 @@ export interface PlaceOptions {
   biome?: BiomeId;
   forceRare?: boolean;
   arrivalsSinceRare?: number;
+  firstRare?: boolean;
 }
 
 export function hashSeed(seed: number, salt: number): number {
@@ -25,6 +26,10 @@ export function unitFromSeed(seed: number, salt: number): number {
 
 export function bucketKey(biome: BiomeId, archetypeId: string): string {
   return `${biome}:${archetypeId}`;
+}
+
+export function rareBucketKey(rareId: string): string {
+  return `rare:${rareId.replace(/^rare_/, '')}`;
 }
 
 export function biomeForProgress(
@@ -51,21 +56,12 @@ export function placeFromSeed(seedInput: number, options: PlaceOptions = {}): Wo
   const isRare = options.forceRare === true || unitFromSeed(seed, 1) < pityRate;
 
   if (isRare) {
-    const rare = RARE_LOCATIONS[hashSeed(seed, 2) % RARE_LOCATIONS.length];
-    const biome = options.biome ?? chooseBiome(seed, options.currentBiome);
-    const validArchetypes = ARCHETYPES.filter((entry) => entry.biomes.includes(biome));
-    const archetype = validArchetypes[hashSeed(seed, 3) % validArchetypes.length];
-    return {
-      seed,
-      biome,
-      archetypeId: archetype.id,
-      adjectiveIndex: -1,
-      name: authoredPlaceName(rare.name, archetype.noun),
-      isRare: true,
-      rareId: rare.id,
-      bucketKey: bucketKey(biome, archetype.id),
-      departText: authoredCopy(rare.departText),
-    };
+    const pool = options.firstRare
+      ? RARE_LOCATIONS.filter((rare) => (
+        rare.sceneId === 'saltflat' || rare.sceneId === 'shore' || rare.sceneId === 'span'
+      ))
+      : RARE_LOCATIONS;
+    return resolvedRare(seed, pool[hashSeed(seed, 2) % pool.length]);
   }
 
   const biome = options.biome ?? chooseBiome(seed, options.currentBiome);
@@ -86,6 +82,12 @@ export function placeFromSeed(seedInput: number, options: PlaceOptions = {}): Wo
     bucketKey: bucketKey(biome, archetype.id),
     departText: '',
   };
+}
+
+/** Deterministic dev/QA entry point for a complete rare destination. */
+export function placeForRare(seedInput: number, rareId: string): WorldPlace | null {
+  const rare = RARE_LOCATIONS.find((entry) => entry.id === rareId);
+  return rare ? resolvedRare(seedInput >>> 0, rare) : null;
 }
 
 /** Deterministic dev/QA entry point for a specific authored biome/archetype bucket. */
@@ -157,5 +159,23 @@ export function propsFromSeed(
     size: 0.7 + unitFromSeed(seed, slotIndex * 7 + 13) * 0.6,
     depth: hashSeed(seed, slotIndex * 7 + 14) % 4,
     offset: unitFromSeed(seed, slotIndex * 7 + 15),
+  };
+}
+
+function resolvedRare(
+  seed: number,
+  rare: (typeof RARE_LOCATIONS)[number],
+): WorldPlace {
+  const archetype = ARCHETYPES.find((entry) => entry.id === rare.archetypeId);
+  return {
+    seed,
+    biome: rare.biome,
+    archetypeId: rare.archetypeId,
+    adjectiveIndex: -1,
+    name: authoredPlaceName(rare.name, archetype?.noun ?? 'Waymark'),
+    isRare: true,
+    rareId: rare.id,
+    bucketKey: rareBucketKey(rare.id),
+    departText: authoredCopy(rare.departText),
   };
 }

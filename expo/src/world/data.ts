@@ -91,14 +91,72 @@ export const ARCHETYPES: readonly ArchetypeDefinition[] = [
   { id: 'waymark', noun: 'Waymark', biomes: ['fungal_deep'] },
 ];
 
-export const RARE_LOCATIONS: readonly RareLocationDefinition[] = Array.from(
-  { length: 6 },
-  (_, index) => ({
-    id: `rare_${index + 1}`,
-    name: `TODO: rare location ${index + 1}`,
+export const RARE_LOCATIONS: readonly RareLocationDefinition[] = [
+  {
+    id: 'vansh_sea',
+    name: 'the Vansh Sea',
     departText: 'TODO: copy',
-  }),
-);
+    sceneId: 'shore',
+    biome: 'river_vale',
+    archetypeId: 'crossing',
+  },
+  {
+    id: 'gardner_lake',
+    name: 'Gardner Lake',
+    departText: 'TODO: copy',
+    sceneId: 'stillwater',
+    biome: 'river_vale',
+    archetypeId: 'willow',
+  },
+  {
+    id: 'rare_canyon',
+    name: 'TODO: rare canyon name',
+    departText: 'TODO: copy',
+    sceneId: 'canyon',
+    biome: 'ashen_waste',
+    archetypeId: 'gate',
+  },
+  {
+    id: 'nova_reach',
+    name: 'Nova Reach',
+    departText: 'TODO: copy',
+    sceneId: 'starfall',
+    biome: 'high_country',
+    archetypeId: 'watchtower',
+  },
+  {
+    id: 'rare_highpass',
+    name: 'TODO: rare high-pass name',
+    departText: 'TODO: copy',
+    sceneId: 'highpass',
+    biome: 'high_country',
+    archetypeId: 'crossing',
+  },
+  {
+    id: 'rare_saltflat',
+    name: 'TODO: rare salt-flat name',
+    departText: 'TODO: copy',
+    sceneId: 'saltflat',
+    biome: 'ashen_waste',
+    archetypeId: 'stones',
+  },
+  {
+    id: 'rare_span',
+    name: 'TODO: rare span name',
+    departText: 'TODO: copy',
+    sceneId: 'span',
+    biome: 'high_country',
+    archetypeId: 'watchtower',
+  },
+  {
+    id: 'rare_canopy',
+    name: 'TODO: rare canopy name',
+    departText: 'TODO: copy',
+    sceneId: 'canopy',
+    biome: 'fungal_deep',
+    archetypeId: 'hollow',
+  },
+];
 
 export function getRareLocation(id: string): RareLocationDefinition | undefined {
   return RARE_LOCATIONS.find((location) => location.id === id);

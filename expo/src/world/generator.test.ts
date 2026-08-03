@@ -6,6 +6,7 @@ import {
   bucketKey,
   isPendingCopy,
   placeForBucket,
+  placeForRare,
   placeFromSeed,
   propsFromSeed,
   shouldGuaranteeFirstRare,
@@ -21,11 +22,11 @@ describe('seeded world', () => {
     );
   });
 
-  it('defines five biomes, thirteen archetypes, and six rares', () => {
+  it('defines five biomes, thirteen archetypes, and eight rare scenes', () => {
     expect(BIOME_IDS).toHaveLength(5);
     expect(ARCHETYPES).toHaveLength(13);
     expect(ARCHETYPES.reduce((count, entry) => count + entry.biomes.length, 0)).toBe(25);
-    expect(RARE_LOCATIONS).toHaveLength(6);
+    expect(RARE_LOCATIONS).toHaveLength(8);
     for (const biome of BIOME_IDS) {
       expect(BIOMES[biome].props).toHaveLength(4);
       expect(BIOMES[biome].adjectives).toHaveLength(16);
@@ -51,8 +52,24 @@ describe('seeded world', () => {
     expect(shouldGuaranteeFirstRare(true, 3)).toBe(false);
   });
 
+  it('weights the guaranteed first rare to frame-changing scenes', () => {
+    const firstScenes = new Set(
+      Array.from({ length: 100 }, (_, seed) => {
+        const place = placeFromSeed(seed, { forceRare: true, firstRare: true });
+        return RARE_LOCATIONS.find((rare) => rare.id === place.rareId)?.sceneId;
+      }),
+    );
+    expect(firstScenes).toEqual(new Set(['shore', 'saltflat', 'span']));
+  });
+
   it('builds cairn buckets from the resolved biome and archetype', () => {
     expect(bucketKey('ashen_waste', 'bell')).toBe('ashen_waste:bell');
+  });
+
+  it('stores rare social buckets as literal rare ids', () => {
+    expect(placeForRare(17, 'vansh_sea')?.bucketKey).toBe('rare:vansh_sea');
+    expect(placeForRare(17, 'gardner_lake')?.biome).toBe('river_vale');
+    expect(placeForRare(17, 'missing')).toBeNull();
   });
 
   it('forces only valid authored biome and archetype buckets for visual QA', () => {
