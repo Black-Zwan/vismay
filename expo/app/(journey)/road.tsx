@@ -49,6 +49,9 @@ export default function RoadScreen() {
   const phase = useStore((state) => state.phase);
   const journey = useStore((state) => state.journey);
   const devMode = useStore((state) => state.settings.devMode);
+  const devSceneId = useStore((state) => state.devSceneId);
+  const devApproachProgress = useStore((state) => state.devApproachProgress);
+  const setRenderFps = useStore((state) => state.setRenderFps);
   const pullDraft = useStore((state) => state.pullDraft);
   const beginPull = useStore((state) => state.beginPull);
   const chooseLens = useStore((state) => state.chooseLens);
@@ -103,6 +106,10 @@ export default function RoadScreen() {
           tintHex={tintHex}
           cairns={roadCairns}
           onCairnPress={setSelectedCairnId}
+          rareId={place.rareId}
+          forcedSceneId={devSceneId}
+          forcedApproachProgress={devApproachProgress}
+          onFps={setRenderFps}
         />
       </View>
 

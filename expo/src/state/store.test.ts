@@ -56,3 +56,38 @@ describe('onboarding', () => {
     expect(reset.settings.arrivalPermissionAsked).toBe(false);
   });
 });
+
+describe('scene inspector', () => {
+  it('toggles a forced scene independently of the real destination', () => {
+    useStore.setState((state) => ({
+      onboarded: true,
+      settings: { ...state.settings, devMode: true },
+    }));
+
+    useStore.getState().devToggleScene('shore');
+    expect(useStore.getState().devSceneId).toBe('shore');
+    expect(useStore.getState().devApproachProgress).toBe(1);
+
+    useStore.getState().devSetSceneApproach(0.72);
+    expect(useStore.getState().devApproachProgress).toBe(0.72);
+
+    useStore.getState().devToggleScene('shore');
+    expect(useStore.getState().devSceneId).toBeNull();
+  });
+
+  it('jumps to a complete rare destination without requiring prior rare state', () => {
+    useStore.setState((state) => ({
+      onboarded: true,
+      settings: { ...state.settings, devMode: true },
+    }));
+
+    useStore.getState().devForceRareLocation('vansh_sea');
+    const state = useStore.getState();
+    expect(state.journey.place.name).toBe('the Vansh Sea');
+    expect(state.journey.place.bucketKey).toBe('rare:vansh_sea');
+    expect(state.journey.place.rareId).toBe('vansh_sea');
+    expect(state.phase).toBe('arrive');
+    expect(state.journey.bankedArrivals).toBeGreaterThan(0);
+    expect(state.journey.arrivalAt).toBeLessThanOrEqual(Date.now());
+  });
+});

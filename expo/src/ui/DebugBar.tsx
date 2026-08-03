@@ -16,7 +16,8 @@ import {
   type Daypart,
 } from '@/src/core/time';
 import { selectWalkProgress, useStore } from '@/src/state/store';
-import { ARCHETYPES, BIOME_IDS } from '@/src/world/data';
+import { ARCHETYPES, BIOME_IDS, RARE_LOCATIONS } from '@/src/world/data';
+import { SCENE_IDS } from '@/src/render/WorldView';
 import { ASPECT_LIST } from '@/src/content/aspects';
 import { getSign } from '@/src/content/signs';
 import { Text } from '@/src/ui/Text';
@@ -36,12 +37,18 @@ export function DebugBar() {
   const isPlus = useStore((state) => state.journey.isPlus);
   const seed = useStore((state) => state.journey.seed);
   const journey = useStore((state) => state.journey);
+  const devSceneId = useStore((state) => state.devSceneId);
+  const devApproachProgress = useStore((state) => state.devApproachProgress);
+  const renderFps = useStore((state) => state.renderFps);
   const devSetTimeOffset = useStore((state) => state.devSetTimeOffset);
   const devForceArrival = useStore((state) => state.devForceArrival);
   const devToggleFastLegs = useStore((state) => state.devToggleFastLegs);
   const devTogglePlus = useStore((state) => state.devTogglePlus);
   const devForceDaypart = useStore((state) => state.devForceDaypart);
   const devForceRare = useStore((state) => state.devForceRare);
+  const devForceRareLocation = useStore((state) => state.devForceRareLocation);
+  const devToggleScene = useStore((state) => state.devToggleScene);
+  const devSetSceneApproach = useStore((state) => state.devSetSceneApproach);
   const devRerollSeed = useStore((state) => state.devRerollSeed);
   const devJumpBiome = useStore((state) => state.devJumpBiome);
   const devSetWalkProgress = useStore((state) => state.devSetWalkProgress);
@@ -66,6 +73,9 @@ export function DebugBar() {
   const shiftedTime = now();
   const daypart = daypartFromTimestamp(shiftedTime);
   const progress = selectWalkProgress(journey, clock);
+  const realSceneId = RARE_LOCATIONS.find((rare) => rare.id === journey.place.rareId)?.sceneId ?? 'default';
+  const sceneId = devSceneId ?? realSceneId;
+  const sceneProgress = devSceneId ? devApproachProgress : progress;
 
   const stepOffset = (amount: number) => devSetTimeOffset(devOffsetMs + amount);
   const forceDaypart = (part: Daypart | null) => {
@@ -101,9 +111,13 @@ export function DebugBar() {
             {`${formatClock(shiftedTime)} · ${daypart} · ${formatOffset(devOffsetMs)}`}
           </Text>
           <Text style={styles.readout}>{`seed ${seed}`}</Text>
+          <Text style={styles.readout}>
+            {`${sceneId} · ${devSceneId ? 'forced' : 'real'} · approach ${Math.round(sceneProgress * 100)}% · ${renderFps} fps`}
+          </Text>
           <TimeSlider value={devOffsetMs} onChange={devSetTimeOffset} />
           <Text style={styles.readout}>{`${Math.round(progress * 100)}% · ${journey.biome}:${journey.place.archetypeId}`}</Text>
           <ProgressSlider value={progress} onChange={devSetWalkProgress} />
+          <ApproachSlider value={devApproachProgress} onChange={devSetSceneApproach} />
         </View>
 
         <ToolButton label="+1h" onPress={() => stepOffset(HOUR_MS)} />
@@ -144,6 +158,28 @@ export function DebugBar() {
           active={isPlus}
           onPress={() => devTogglePlus(!isPlus)}
         />
+
+        <View style={styles.group}>
+          {SCENE_IDS.map((scene) => (
+            <ToolButton
+              key={scene}
+              label={`scene ${scene}`}
+              active={devSceneId === scene}
+              onPress={() => devToggleScene(scene)}
+            />
+          ))}
+        </View>
+
+        <View style={styles.group}>
+          {RARE_LOCATIONS.map((rare) => (
+            <ToolButton
+              key={rare.id}
+              label={`rare ${rare.name.startsWith('TODO:') ? rare.sceneId : rare.name}`}
+              active={journey.place.rareId === rare.id && devSceneId === null}
+              onPress={() => devForceRareLocation(rare.id)}
+            />
+          ))}
+        </View>
 
         <View style={styles.group}>
           {ASPECT_LIST.flatMap((aspect) => [
@@ -191,6 +227,41 @@ export function DebugBar() {
 
         <ToolButton label="reset state" danger onPress={confirmReset} />
       </ScrollView>
+    </View>
+  );
+}
+
+function ApproachSlider({ value, onChange }: { value: number; onChange: (value: number) => void }) {
+  const trackRef = useRef<View>(null);
+  const progress = (value - 0.55) / 0.45;
+  const updateFromEvent = (event: GestureResponderEvent) => {
+    const pageX = event.nativeEvent.pageX;
+    trackRef.current?.measureInWindow((x, _y, width) => {
+      if (width <= 0) return;
+      const ratio = Math.max(0, Math.min(1, (pageX - x) / width));
+      onChange(Math.round((0.55 + ratio * 0.45) * 100) / 100);
+    });
+  };
+  return (
+    <View
+      ref={trackRef}
+      accessible
+      accessibilityRole="adjustable"
+      accessibilityLabel="Scene approach"
+      accessibilityValue={{ min: 55, max: 100, now: Math.round(value * 100) }}
+      accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+      onAccessibilityAction={(event) => {
+        if (event.nativeEvent.actionName === 'increment') onChange(value + 0.01);
+        if (event.nativeEvent.actionName === 'decrement') onChange(value - 0.01);
+      }}
+      onStartShouldSetResponder={() => true}
+      onMoveShouldSetResponder={() => true}
+      onResponderGrant={updateFromEvent}
+      onResponderMove={updateFromEvent}
+      style={styles.slider}
+    >
+      <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
+      <View style={[styles.sliderThumb, { left: `${progress * 100}%` }]} />
     </View>
   );
 }

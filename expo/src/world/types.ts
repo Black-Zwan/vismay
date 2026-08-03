@@ -5,6 +5,17 @@ export type BiomeId =
   | 'fungal_deep'
   | 'high_country';
 
+export type SceneId =
+  | 'default'
+  | 'shore'
+  | 'stillwater'
+  | 'canyon'
+  | 'starfall'
+  | 'highpass'
+  | 'saltflat'
+  | 'span'
+  | 'canopy';
+
 export type WorldPropKind =
   | 'pine'
   | 'stone'
@@ -19,7 +30,11 @@ export type WorldPropKind =
   | 'spire'
   | 'obelisk'
   | 'palm'
-  | 'wagon';
+  | 'wagon'
+  | 'driftwood'
+  | 'hull'
+  | 'fern'
+  | 'vine';
 
 export interface BiomeDefinition {
   id: BiomeId;
@@ -40,6 +55,9 @@ export interface RareLocationDefinition {
   id: string;
   name: string;
   departText: string;
+  sceneId: Exclude<SceneId, 'default'>;
+  biome: BiomeId;
+  archetypeId: string;
 }
 
 export interface WorldPlace {

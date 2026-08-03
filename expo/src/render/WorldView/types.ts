@@ -4,7 +4,7 @@
  */
 
 import type { Daypart } from '@/src/core/time';
-import type { BiomeId } from '@/src/world/types';
+import type { BiomeId, SceneId } from '@/src/world/types';
 
 export interface WorldViewProps {
   daypart: Daypart;
@@ -18,4 +18,8 @@ export interface WorldViewProps {
   tintHex?: string;
   cairns?: readonly { id: string; position: number }[];
   onCairnPress?: (id: string) => void;
+  rareId?: string | null;
+  forcedSceneId?: SceneId | null;
+  forcedApproachProgress?: number;
+  onFps?: (fps: number) => void;
 }
