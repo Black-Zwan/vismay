@@ -325,10 +325,15 @@ const WORLD_FRAGMENT_SHADER = `
           }
           // Water rides its own short ramp and is dithered exactly like the sky.
           // A two-colour threshold here is what produced horizontal stripes.
-          float widx = (1.0 - depth) * (W_N - 1.0) * 0.42 + shimmer * (W_N - 1.0) * 0.58;
+          // The receding surface dominates; waves modulate the plane instead of defining it.
+          float plane = pow(1.0 - depth, 1.35);
+          float widx = plane * (W_N - 1.0) * 0.78 + (shimmer - 0.5) * (W_N - 1.0) * 0.34;
+          widx += smoothstep(0.06, 0.0, depth) * 2.2;
           // glitter path beneath the sun or moon — the detail that sells water
           float glint = max(0.0, 1.0 - abs(nx - u_orb.x) / 0.18);
-          widx += glint * glint * 2.6 * depth * u_waterBand.x;
+          widx += glint * glint * 3.2 * (0.25 + depth) * u_waterBand.x;
+          float lip = smoothstep(0.92, 1.0, depth);
+          widx += lip * 3.4;
           float waterEdge = min(1.0, (ny - u_waterBand.y) * 18.0);
           if (u_waterBand.w > 0.5) waterEdge *= min(1.0, (u_waterBand.z - ny) * 24.0);
           float blended = mix(idx * (W_N - 1.0) / (G_N - 1.0), widx, u_waterBand.x * waterEdge);

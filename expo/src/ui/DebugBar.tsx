@@ -63,6 +63,7 @@ export function DebugBar() {
   const devCycleTraceDensity = useStore((state) => state.devCycleTraceDensity);
   const devGrantCurio = useStore((state) => state.devGrantCurio);
   const resetAll = useStore((state) => state.resetAll);
+  const [panelOpen, setPanelOpen] = useState(false);
   const [forcedDaypart, setForcedDaypart] = useState<Daypart | null>(
     DEV_DAYPART_OVERRIDE.current,
   );
@@ -101,9 +102,19 @@ export function DebugBar() {
 
   return (
     <View style={styles.root}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={panelOpen ? 'Hide dev tools' : 'Show dev tools'}
+        style={styles.handle}
+        onPress={() => setPanelOpen((open) => !open)}
+      >
+        <Text style={styles.handleText}>{`dev · ${daypart} · ${sceneId} · ${renderFps}fps`}</Text>
+        <Text style={styles.handleText}>{panelOpen ? '▾' : '▴'}</Text>
+      </Pressable>
+      {panelOpen ? (
       <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
+        style={styles.panel}
+        showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
       >
         <View style={styles.clockBlock}>
@@ -227,6 +238,7 @@ export function DebugBar() {
 
         <ToolButton label="reset state" danger onPress={confirmReset} />
       </ScrollView>
+      ) : null}
     </View>
   );
 }
@@ -384,13 +396,29 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     borderTopColor: colors.line,
     borderTopWidth: StyleSheet.hairlineWidth,
-    minHeight: 58,
+  },
+  handle: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 5,
+  },
+  handleText: {
+    color: colors.textMuted,
+    fontFamily: 'monospace',
+    fontSize: 10,
+  },
+  panel: {
+    maxHeight: 260,
   },
   content: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.xs,
+    paddingBottom: spacing.sm,
     paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
   },
   clockBlock: {
     gap: 5,
@@ -425,6 +453,7 @@ const styles = StyleSheet.create({
   },
   group: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.xs,
   },
   toolButton: {
