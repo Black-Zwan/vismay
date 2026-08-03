@@ -69,10 +69,11 @@ import {
   biomeForProgress,
   placeFromSeed,
   placeForBucket,
+  placeForRare,
   shouldGuaranteeFirstRare,
   unitFromSeed,
 } from '@/src/world/generator';
-import type { BiomeId } from '@/src/world/types';
+import type { BiomeId, SceneId } from '@/src/world/types';
 
 /** Transient pull-in-progress data (not persisted; rebuilt from phase if needed). */
 interface PullDraft {
@@ -89,6 +90,9 @@ export interface StoreState extends AppState {
   hydrated: boolean;
   /** Dev overrides. */
   devFastLegs: boolean;
+  devSceneId: SceneId | null;
+  devApproachProgress: number;
+  renderFps: number;
   /** Transient draft for the current pull. */
   pullDraft: PullDraft | null;
 
@@ -121,6 +125,10 @@ export interface StoreState extends AppState {
   devTogglePlus: (on: boolean) => void;
   devForceDaypart: (part: Daypart | null) => void;
   devForceRare: () => void;
+  devForceRareLocation: (rareId: string) => void;
+  devToggleScene: (sceneId: SceneId) => void;
+  devSetSceneApproach: (progress: number) => void;
+  setRenderFps: (fps: number) => void;
   devRerollSeed: () => void;
   devJumpBiome: () => void;
   devSetWalkProgress: (progress: number) => void;
@@ -236,6 +244,9 @@ export const useStore = create<StoreState>((set, get) => ({
   clockGuard: { lastSeenTimestamp: now(), monotonicCounter: 0 },
   hydrated: false,
   devFastLegs: false,
+  devSceneId: null,
+  devApproachProgress: 1,
+  renderFps: 0,
   pullDraft: null,
 
   hydrate: async () => {
@@ -268,6 +279,9 @@ export const useStore = create<StoreState>((set, get) => ({
       clockGuard: { lastSeenTimestamp: now(), monotonicCounter: 0 },
       hydrated: true,
       devFastLegs: false,
+      devSceneId: null,
+      devApproachProgress: 1,
+      renderFps: 0,
       pullDraft: null,
     });
     runNotifyEffect(get(), get().devFastLegs);
@@ -477,6 +491,7 @@ export const useStore = create<StoreState>((set, get) => ({
     const nextPlace = placeFromSeed(seed, {
       currentBiome: journey.biome,
       forceRare: forceFirstRare,
+      firstRare: forceFirstRare,
       arrivalsSinceRare: journey.arrivalsSinceRare,
     });
 
@@ -632,6 +647,49 @@ export const useStore = create<StoreState>((set, get) => ({
     });
     set({ journey: { ...state.journey, place, arrivalsSinceRare: 0 } });
     void persistState(getAppState(get()), get().clockGuard);
+  },
+
+  devForceRareLocation: (rareId) => {
+    const state = get();
+    if (!state.settings.devMode) return;
+    const place = placeForRare(state.journey.seed, rareId);
+    if (!place) return;
+    const timestamp = now();
+    set({
+      devSceneId: null,
+      devApproachProgress: 1,
+      phase: 'arrive',
+      journey: {
+        ...state.journey,
+        previousBiome: place.biome,
+        biome: place.biome,
+        place,
+        legStartedAt: timestamp - state.journey.legDurationMs,
+        arrivalAt: timestamp,
+        bankedArrivals: Math.max(1, state.journey.bankedArrivals),
+        arrivalsSinceRare: 0,
+      },
+    });
+    void persistState(getAppState(get()), get().clockGuard);
+  },
+
+  devToggleScene: (sceneId) => {
+    const state = get();
+    if (!state.settings.devMode) return;
+    set({
+      devSceneId: state.devSceneId === sceneId ? null : sceneId,
+      devApproachProgress: 1,
+    });
+  },
+
+  devSetSceneApproach: (progress) => {
+    const state = get();
+    if (!state.settings.devMode) return;
+    set({ devApproachProgress: Math.max(0.55, Math.min(1, progress)) });
+  },
+
+  setRenderFps: (fps) => {
+    if (get().renderFps !== fps) set({ renderFps: fps });
   },
 
   devRerollSeed: () => {

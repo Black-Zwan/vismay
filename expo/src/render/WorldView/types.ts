@@ -4,7 +4,7 @@
  */
 
 import type { Daypart } from '@/src/core/time';
-import type { BiomeId } from '@/src/world/types';
+import type { BiomeId, SceneId } from '@/src/world/types';
 
 export interface WorldViewProps {
   daypart: Daypart;
@@ -16,4 +16,8 @@ export interface WorldViewProps {
   characterId: string;
   accentHex: string;
   tintHex?: string;
+  rareId?: string | null;
+  forcedSceneId?: SceneId | null;
+  forcedApproachProgress?: number;
+  onFps?: (fps: number) => void;
 }
