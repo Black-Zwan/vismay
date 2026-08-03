@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, StyleSheet, View } from 'react-native';
+import { Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { DAYPARTS } from '@/src/content/dayparts';
@@ -103,6 +103,8 @@ type PropLayersProps = {
   sceneProgress: number;
   sceneProps: readonly WorldPropKind[] | null;
   children: React.ReactNode;
+  cairns?: readonly { id: string; position: number }[];
+  onCairnPress?: (id: string) => void;
 };
 
 export function PropLayers({
@@ -117,6 +119,8 @@ export function PropLayers({
   sceneProgress,
   sceneProps,
   children,
+  cairns = [],
+  onCairnPress,
 }: PropLayersProps) {
   const palette = useEasedPropPalette(daypart, biome, accentHex, tintHex);
 
@@ -124,7 +128,7 @@ export function PropLayers({
     <View style={styles.root}>
       <ParallaxBand layer="far" seed={seed} biome={biome} sceneProps={sceneProps} fill={rgbCss(palette.far)} highlight={rgbCss(palette.highlight)} accent={rgbCss(palette.accent)} walking={walking} />
       <ParallaxBand layer="mid" seed={seed} biome={biome} sceneProps={sceneProps} fill={rgbCss(palette.far)} highlight={rgbCss(palette.highlight)} accent={rgbCss(palette.accent)} walking={walking} />
-      <ParallaxBand layer="near" seed={seed} biome={biome} sceneProps={sceneProps} fill={rgbCss(palette.near)} highlight={rgbCss(palette.highlight)} accent={rgbCss(palette.accent)} walking={walking} />
+      <ParallaxBand layer="near" seed={seed} biome={biome} sceneProps={sceneProps} fill={rgbCss(palette.near)} highlight={rgbCss(palette.highlight)} accent={rgbCss(palette.accent)} walking={walking} cairns={cairns} onCairnPress={onCairnPress} />
       <LandmarkApproach
         archetypeId={archetypeId}
         walkProgress={sceneProgress}
@@ -164,6 +168,8 @@ function ParallaxBand({
   highlight,
   accent,
   walking,
+  cairns = [],
+  onCairnPress,
 }: {
   layer: LayerKey;
   seed: number;
@@ -173,6 +179,8 @@ function ParallaxBand({
   highlight: string;
   accent: string;
   walking: boolean;
+  cairns?: readonly { id: string; position: number }[];
+  onCairnPress?: (id: string) => void;
 }) {
   const config = LAYERS[layer];
   const placements = useMemo(
@@ -205,6 +213,26 @@ function ParallaxBand({
           </View>
         )),
       )}
+      {layer === 'near' ? [0, STRIP_WIDTH].flatMap((offset) =>
+        cairns.map((cairn) => (
+          <Pressable
+            key={`cairn-${offset}-${cairn.id}`}
+            accessibilityRole="button"
+            accessibilityLabel="A cairn, recently stacked"
+            onPress={() => onCairnPress?.(cairn.id)}
+            style={({ pressed }) => [
+              styles.cairn,
+              { left: cairn.position * STRIP_WIDTH + offset },
+              pressed && styles.cairnPressed,
+            ]}
+          >
+            <View style={[styles.cairnGlow, { backgroundColor: accent }]} />
+            <View style={[styles.cairnStone, styles.cairnStoneTop, { backgroundColor: highlight }]} />
+            <View style={[styles.cairnStone, styles.cairnStoneMiddle, { backgroundColor: fill }]} />
+            <View style={[styles.cairnStone, styles.cairnStoneBase, { backgroundColor: fill }]} />
+          </Pressable>
+        )),
+      ) : null}
     </Animated.View>
   );
 }
@@ -493,13 +521,14 @@ const styles = StyleSheet.create({
   root: {
     ...StyleSheet.absoluteFillObject,
     overflow: 'hidden',
-    pointerEvents: 'none',
+    pointerEvents: 'box-none',
   },
   band: {
     position: 'absolute',
     top: 0,
     bottom: 0,
     left: 0,
+    pointerEvents: 'box-none',
   },
   prop: {
     position: 'absolute',
@@ -509,5 +538,43 @@ const styles = StyleSheet.create({
     width: 3,
     height: 3,
     borderRadius: 1.5,
+  },
+  cairn: {
+    alignItems: 'center',
+    bottom: '30%',
+    height: 54,
+    justifyContent: 'flex-end',
+    paddingBottom: 4,
+    position: 'absolute',
+    width: 54,
+  },
+  cairnPressed: {
+    opacity: 0.68,
+  },
+  cairnGlow: {
+    borderRadius: 24,
+    bottom: 0,
+    height: 42,
+    opacity: 0.15,
+    position: 'absolute',
+    width: 42,
+  },
+  cairnStone: {
+    borderRadius: 8,
+    marginTop: -2,
+  },
+  cairnStoneTop: {
+    height: 8,
+    width: 13,
+  },
+  cairnStoneMiddle: {
+    height: 10,
+    opacity: 0.9,
+    width: 21,
+  },
+  cairnStoneBase: {
+    height: 11,
+    opacity: 0.75,
+    width: 29,
   },
 });

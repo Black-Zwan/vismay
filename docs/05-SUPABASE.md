@@ -2,11 +2,11 @@
 
 ## Seeded-world cairn seam
 
-Work Order 5 defines the future shared-world bucket shape below. It is schema only: the client uses an offline no-op `CairnService` and makes no connection. `bucket_key` is resolved and stored at write time; it is never regenerated from a seed during a read.
+Work Order 5 defines the shared-world bucket shape below. Work Order 8 connects the `trace` kind. `bucket_key` is resolved and stored at write time; it is never regenerated from a seed during a read.
 
 ```sql
 create table cairns (
-  id uuid primary key,
+  id bigint generated always as identity primary key,
   bucket_key text not null,
   kind text not null,
   payload jsonb,
@@ -15,9 +15,7 @@ create table cairns (
 create index on cairns (bucket_key, created_at desc);
 ```
 
-The older `traces` proposal below remains historical design context until the network pass reconciles the two. Do not connect either schema in the client yet.
-
-**Not built yet, and deliberately so.** The app must be complete and shippable without it. Build this only after the core loop stands alone.
+The reconciled schema keeps WO5's literal bucket routing and stores WO8's exact six-integer tuple in `payload`. The complete executable migration, including RLS, lives at `expo/supabase/migrations/202608030001_traces.sql`.
 
 ## What it's for
 
@@ -33,18 +31,12 @@ Tap to read, dismiss. No reply, no rating, no identity. This is the entire socia
 One table. No auth, no user table, no storage buckets, no realtime, no edge functions. If a task seems to need any of those, it is out of scope — check with the owner.
 
 ```sql
-create table traces (
-  id          bigint generated always as identity primary key,
-  leg_id      int         not null,
-  day_index   int         not null,
-  hour_bucket smallint    not null,
-  sign        smallint    not null,
-  lens        smallint    not null,
-  card        smallint    not null,
-  created_at  timestamptz not null default now()
+insert into cairns (bucket_key, kind, payload)
+values (
+  'pinelands:shrine:3',
+  'trace',
+  '{"leg_id":3,"day_index":4,"hour_bucket":19,"sign":9,"lens":0,"card":1}'::jsonb
 );
-
-create index traces_leg_recent on traces (leg_id, created_at desc);
 ```
 
 Every field is an enum index. **The database can only ever contain combinations of things we wrote.** No free text exists anywhere in the payload, so there is nothing to moderate and nothing off-brand can ever appear on the road. The reading prose never leaves the device — the lens is shared, the writing is private, permanently.
@@ -54,22 +46,23 @@ Every field is an enum index. **The database can only ever contain combinations 
 The anon key is public by design. **The insert policy is the only security boundary**, so it has to be exactly right.
 
 ```sql
-alter table traces enable row level security;
+alter table cairns enable row level security;
 
-create policy traces_anon_insert on traces
+create policy cairns_anon_trace_insert on cairns
   for insert to anon
   with check (
-    leg_id      >= 0  and leg_id      < 10000 and
-    day_index   >= 0  and day_index   < 100000 and
-    hour_bucket >= 0  and hour_bucket < 24 and
-    sign        >= 0  and sign        < 12 and
-    lens        >= 0  and lens        < 18 and
-    card        >= 0  and card        < 78
+    kind = 'trace' and
+    bucket_key ~ '^[a-z0-9_-]+:[a-z0-9_-]+:[0-9]+$' and
+    is_valid_trace_payload(payload)
   );
 
-create policy traces_anon_recent_select on traces
+create policy cairns_anon_trace_select on cairns
   for select to anon
-  using (created_at > now() - interval '48 hours');
+  using (
+    kind = 'trace' and
+    created_at > now() - interval '48 hours' and
+    is_valid_trace_payload(payload)
+  );
 ```
 
 **No update policy. No delete policy.** Their absence is the protection — do not add them "for completeness."
@@ -79,13 +72,14 @@ create policy traces_anon_recent_select on traces
 `src/services/traces.ts`. Plain REST with the anon key from an environment variable. Two functions:
 
 ```ts
-insertTrace(payload: TracePayload): Promise<void>
-fetchRecentTraces(legId: number): Promise<TracePayload[]>   // limit 12
+writeTrace(bucketKey: string, payload: TracePayload): Promise<void>
+readRecentTraces(bucketKey: string): Promise<TraceObservation[]> // limit 12
 ```
 
 - One insert per completed pull, fire-and-forget
 - One select per walk-leg start, cached for the session
 - **Both must fail silently and return empty on any error.** No loading state, no error banner, no retry, no toast
+- Configure with `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`. Without both values, the network path remains off and the procedural floor is the complete experience.
 
 The app has zero hard network dependencies. A failed fetch is indistinguishable from a quiet night on the road, and that is the design.
 

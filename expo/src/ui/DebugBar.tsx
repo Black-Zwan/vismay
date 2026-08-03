@@ -56,7 +56,14 @@ export function DebugBar() {
   const devGrantAspect = useStore((state) => state.devGrantAspect);
   const devCycleSign = useStore((state) => state.devCycleSign);
   const devFireArrivalNotification = useStore((state) => state.devFireArrivalNotification);
+  const traceNetworkEnabled = useStore((state) => state.traceNetworkEnabled);
+  const traceDensity = useStore((state) => state.traceDensity);
+  const devSpawnCairn = useStore((state) => state.devSpawnCairn);
+  const devToggleTraceNetwork = useStore((state) => state.devToggleTraceNetwork);
+  const devCycleTraceDensity = useStore((state) => state.devCycleTraceDensity);
+  const devGrantCurio = useStore((state) => state.devGrantCurio);
   const resetAll = useStore((state) => state.resetAll);
+  const [panelOpen, setPanelOpen] = useState(false);
   const [forcedDaypart, setForcedDaypart] = useState<Daypart | null>(
     DEV_DAYPART_OVERRIDE.current,
   );
@@ -95,9 +102,19 @@ export function DebugBar() {
 
   return (
     <View style={styles.root}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={panelOpen ? 'Hide dev tools' : 'Show dev tools'}
+        style={styles.handle}
+        onPress={() => setPanelOpen((open) => !open)}
+      >
+        <Text style={styles.handleText}>{`dev · ${daypart} · ${sceneId} · ${renderFps}fps`}</Text>
+        <Text style={styles.handleText}>{panelOpen ? '▾' : '▴'}</Text>
+      </Pressable>
+      {panelOpen ? (
       <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
+        style={styles.panel}
+        showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
       >
         <View style={styles.clockBlock}>
@@ -131,6 +148,17 @@ export function DebugBar() {
           onPress={devCycleSign}
         />
         <ToolButton label="fire arrival notification" onPress={devFireArrivalNotification} />
+        <ToolButton label="spawn cairn real" onPress={() => devSpawnCairn('real')} />
+        <ToolButton label="spawn cairn old" onPress={() => devSpawnCairn('procedural')} />
+        <ToolButton
+          label={`network ${traceNetworkEnabled ? 'on' : 'off'}`}
+          active={!traceNetworkEnabled}
+          onPress={devToggleTraceNetwork}
+        />
+        <ToolButton label={`trace ${traceDensity}`} onPress={devCycleTraceDensity} />
+        <ToolButton label="curio common" onPress={() => devGrantCurio('common')} />
+        <ToolButton label="curio uncommon" onPress={() => devGrantCurio('uncommon')} />
+        <ToolButton label="curio rare" onPress={() => devGrantCurio('rare')} />
         <ToolButton
           label="fast"
           active={devFastLegs}
@@ -210,6 +238,7 @@ export function DebugBar() {
 
         <ToolButton label="reset state" danger onPress={confirmReset} />
       </ScrollView>
+      ) : null}
     </View>
   );
 }
@@ -367,13 +396,29 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     borderTopColor: colors.line,
     borderTopWidth: StyleSheet.hairlineWidth,
-    minHeight: 58,
+  },
+  handle: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 5,
+  },
+  handleText: {
+    color: colors.textMuted,
+    fontFamily: 'monospace',
+    fontSize: 10,
+  },
+  panel: {
+    maxHeight: 260,
   },
   content: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.xs,
+    paddingBottom: spacing.sm,
     paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
   },
   clockBlock: {
     gap: 5,
@@ -408,6 +453,7 @@ const styles = StyleSheet.create({
   },
   group: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.xs,
   },
   toolButton: {

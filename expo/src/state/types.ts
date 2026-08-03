@@ -78,6 +78,8 @@ export interface AppState {
   journey: JourneyState;
   chronicle: ChronicleEntry[];
   mirror: MirrorState;
+  /** Finds waiting to be written into the next completed Chronicle entry. */
+  pendingCurioIds: string[];
   raresFound: string[];
   settings: Settings;
   devOffsetMs: number;

@@ -17,10 +17,11 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { getCard } from '@/src/content/cards';
+import { CARDS, getCard } from '@/src/content/cards';
 import { getCharacter } from '@/src/content/characters';
 import { LENSES, getLens } from '@/src/content/lenses';
-import { getSign } from '@/src/content/signs';
+import { SIGNS, getSign } from '@/src/content/signs';
+import { getCurio } from '@/src/content/curios';
 import { Button } from '@/src/ui/Button';
 import { Panel } from '@/src/ui/Panel';
 import { Text } from '@/src/ui/Text';
@@ -37,6 +38,7 @@ import {
   useStore,
 } from '@/src/state/store';
 import { daypartFromTimestamp } from '@/src/core/time';
+import { formatTracePassage, type LegCairn } from '@/src/core/traces';
 
 const DEPARTURE_MS = 1_200;
 
@@ -58,6 +60,10 @@ export default function RoadScreen() {
   const finishReading = useStore((state) => state.finishReading);
   const beginDeparture = useStore((state) => state.beginDeparture);
   const closePull = useStore((state) => state.closePull);
+  const roadCairns = useStore((state) => state.roadCairns);
+  const curioNoticeId = useStore((state) => state.curioNoticeId);
+  const dismissCurioNotice = useStore((state) => state.dismissCurioNotice);
+  const [selectedCairnId, setSelectedCairnId] = useState<string | null>(null);
   const place = useStore(selectCurrentPlace);
   const characterAccent = useStore(selectCharacterAccent);
   const now = useClock();
@@ -98,6 +104,8 @@ export default function RoadScreen() {
           characterId={journey.characterId}
           accentHex={characterAccent}
           tintHex={tintHex}
+          cairns={roadCairns}
+          onCairnPress={setSelectedCairnId}
           rareId={place.rareId}
           forcedSceneId={devSceneId}
           forcedApproachProgress={devApproachProgress}
@@ -138,6 +146,18 @@ export default function RoadScreen() {
         </View>
       ) : null}
 
+      {curioNoticeId && (phase === 'traveling' || phase === 'arrive') ? (
+        <CurioNotice curioId={curioNoticeId} onDismiss={dismissCurioNotice} />
+      ) : null}
+
+      {selectedCairnId ? (
+        <CairnPopover
+          cairn={roadCairns.find((candidate) => candidate.id === selectedCairnId)}
+          now={Date.now()}
+          onDismiss={() => setSelectedCairnId(null)}
+        />
+      ) : null}
+
       {phase === 'question' ? (
         <QuestionOverlay onChoose={chooseLens} />
       ) : null}
@@ -168,6 +188,50 @@ export default function RoadScreen() {
           onSetOut={beginDeparture}
         />
       ) : null}
+    </View>
+  );
+}
+
+function CairnPopover({
+  cairn,
+  now,
+  onDismiss,
+}: {
+  cairn?: LegCairn;
+  now: number;
+  onDismiss: () => void;
+}) {
+  if (!cairn) return null;
+  const sign = SIGNS[cairn.payload.sign];
+  const lens = LENSES[cairn.payload.lens];
+  const card = CARDS[cairn.payload.card];
+  if (!sign || !lens || !card) return null;
+  return (
+    <View style={styles.traceScrim}>
+      <Panel style={styles.tracePanel}>
+        <Text variant="label" muted>A cairn, recently stacked.</Text>
+        <Text variant="reading" style={styles.tracePassage}>
+          {formatTracePassage(cairn, now, sign.name, lens.label, card.name)}
+        </Text>
+        <Button label="Dismiss" onPress={onDismiss} style={styles.traceDismiss} />
+      </Panel>
+    </View>
+  );
+}
+
+function CurioNotice({ curioId, onDismiss }: { curioId: string; onDismiss: () => void }) {
+  const curio = getCurio(curioId);
+  if (!curio) return null;
+  return (
+    <View style={styles.curioArea}>
+      <Panel style={styles.curioPanel}>
+        <Text variant="label" muted>Found on the road</Text>
+        <Text style={styles.curioName}>{curio.name}</Text>
+        <Text variant="caption" muted>{curio.description}</Text>
+        <Pressable accessibilityRole="button" onPress={onDismiss} style={styles.curioDismiss}>
+          <Text variant="caption" muted>Dismiss</Text>
+        </Pressable>
+      </Panel>
     </View>
   );
 }
@@ -496,6 +560,7 @@ const styles = StyleSheet.create({
     left: 0,
     zIndex: 10,
     padding: spacing.md,
+    pointerEvents: 'box-none',
   },
   statusPanel: {
     backgroundColor: 'rgba(17, 14, 28, 0.76)',
@@ -640,5 +705,45 @@ const styles = StyleSheet.create({
   watchSign: {
     marginTop: spacing.xs,
     fontSize: 20,
+  },
+  traceScrim: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    backgroundColor: 'rgba(8, 6, 14, 0.58)',
+    justifyContent: 'center',
+    padding: spacing.lg,
+    zIndex: 30,
+  },
+  tracePanel: {
+    backgroundColor: 'rgba(17, 14, 28, 0.94)',
+    maxWidth: 420,
+    width: '100%',
+  },
+  tracePassage: {
+    marginTop: spacing.md,
+  },
+  traceDismiss: {
+    marginTop: spacing.lg,
+  },
+  curioArea: {
+    alignItems: 'center',
+    left: spacing.md,
+    position: 'absolute',
+    right: spacing.md,
+    top: 88,
+    zIndex: 12,
+  },
+  curioPanel: {
+    backgroundColor: 'rgba(17, 14, 28, 0.9)',
+    maxWidth: 420,
+    width: '100%',
+  },
+  curioName: {
+    marginTop: spacing.xs,
+  },
+  curioDismiss: {
+    alignSelf: 'flex-end',
+    marginTop: spacing.sm,
+    padding: spacing.xs,
   },
 });

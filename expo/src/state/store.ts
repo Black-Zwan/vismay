@@ -57,13 +57,27 @@ import {
 } from '@/src/core/time';
 import type { Daypart } from '@/src/core/time';
 import { makeId } from '@/src/core/ids';
+import { findCurio, type CurioRarity } from '@/src/core/curios';
+import {
+  selectLegCairns,
+  type LegCairn,
+  type TraceDensity,
+  type TracePayload,
+} from '@/src/core/traces';
 import { DEFAULT_CHARACTER_ID, getCharacter } from '@/src/content/characters';
 import { DEFAULT_SIGN_ID, SIGNS, getSign } from '@/src/content/signs';
 import { getHoroscopeLine } from '@/src/content/sky';
-import { getCard, pickCardForPull } from '@/src/content/cards';
-import { getLens } from '@/src/content/lenses';
+import { CARDS, getCard, pickCardForPull } from '@/src/content/cards';
+import { LENSES, getLens } from '@/src/content/lenses';
+import { CURIOS, getCurio } from '@/src/content/curios';
 import { ANSWERS, OPENERS } from '@/src/content/passages';
 import { getWaymark } from '@/src/content/waymarks';
+import {
+  clearTraceSessionCache,
+  readRecentTraces,
+  setTraceNetworkEnabled,
+  writeTrace,
+} from '@/src/services/traces';
 import { BIOME_IDS } from '@/src/world/data';
 import {
   biomeForProgress,
@@ -95,6 +109,12 @@ export interface StoreState extends AppState {
   renderFps: number;
   /** Transient draft for the current pull. */
   pullDraft: PullDraft | null;
+  /** Session-only trail observations for the current literal leg bucket. */
+  roadCairns: LegCairn[];
+  cairnBucketKey: string | null;
+  curioNoticeId: string | null;
+  traceNetworkEnabled: boolean;
+  traceDensity: TraceDensity;
 
   // --- lifecycle ---
   hydrate: () => Promise<void>;
@@ -114,6 +134,8 @@ export interface StoreState extends AppState {
   finishReading: () => void;
   beginDeparture: () => void;
   closePull: () => void;
+  loadRoadCairns: () => Promise<void>;
+  dismissCurioNotice: () => void;
 
   // --- settings ---
   updateSettings: (patch: Partial<Settings>) => void;
@@ -136,6 +158,10 @@ export interface StoreState extends AppState {
   devGrantAspect: (aspect: AspectId, points?: number) => void;
   devCycleSign: () => void;
   devFireArrivalNotification: () => void;
+  devSpawnCairn: (source: 'real' | 'procedural') => void;
+  devToggleTraceNetwork: () => void;
+  devCycleTraceDensity: () => void;
+  devGrantCurio: (rarity: CurioRarity) => void;
 }
 
 function rollLegSeed(): number {
@@ -175,6 +201,7 @@ function defaultAppState(): AppState {
       lensHistory: [],
       recentPulls: [],
     },
+    pendingCurioIds: [],
     raresFound: [],
     settings: {
       notifyArrival: true,
@@ -248,6 +275,11 @@ export const useStore = create<StoreState>((set, get) => ({
   devApproachProgress: 1,
   renderFps: 0,
   pullDraft: null,
+  roadCairns: [],
+  cairnBucketKey: null,
+  curioNoticeId: null,
+  traceNetworkEnabled: true,
+  traceDensity: 'auto',
 
   hydrate: async () => {
     const envelope = await loadPersistedState();
@@ -268,6 +300,7 @@ export const useStore = create<StoreState>((set, get) => ({
     });
     // Credit any arrivals that completed while the app was closed.
     get().tick();
+    void get().loadRoadCairns();
   },
 
   resetAll: async () => {
@@ -283,7 +316,14 @@ export const useStore = create<StoreState>((set, get) => ({
       devApproachProgress: 1,
       renderFps: 0,
       pullDraft: null,
+      roadCairns: [],
+      cairnBucketKey: null,
+      curioNoticeId: null,
+      traceNetworkEnabled: true,
+      traceDensity: 'auto',
     });
+    setTraceNetworkEnabled(true);
+    clearTraceSessionCache();
     runNotifyEffect(get(), get().devFastLegs);
     void persistState(getAppState(get()), get().clockGuard);
   },
@@ -318,8 +358,13 @@ export const useStore = create<StoreState>((set, get) => ({
       phase: 'arrive',
       journey,
       mirror: defaultMirror(selectedSignId),
+      pendingCurioIds: [],
       raresFound: [],
+      roadCairns: [],
+      cairnBucketKey: null,
+      curioNoticeId: null,
     });
+    void get().loadRoadCairns();
     void persistState(getAppState(get()), get().clockGuard);
   },
 
@@ -358,10 +403,27 @@ export const useStore = create<StoreState>((set, get) => ({
     const discoveredRare = updated.bankedArrivals > 0
       ? addRare(state.raresFound, state.journey.place.rareId)
       : state.raresFound;
+    const foundCurioId = newlyBanked > 0
+      ? findCurio({
+        seed: state.journey.seed,
+        dayIndex: state.journey.dayIndex,
+        isRarePlace: state.journey.place.isRare,
+        ownedIds: state.mirror.satchel,
+        candidates: CURIOS,
+      })
+      : null;
     set({
       journey: { ...updated, stepsWalked: steps },
       phase,
       raresFound: discoveredRare,
+      ...(foundCurioId ? {
+        mirror: {
+          ...state.mirror,
+          satchel: [...state.mirror.satchel, foundCurioId],
+        },
+        pendingCurioIds: [...state.pendingCurioIds, foundCurioId],
+        curioNoticeId: foundCurioId,
+      } : {}),
       clockGuard: {
         lastSeenTimestamp: timestamp,
         monotonicCounter: state.clockGuard.monotonicCounter + 1,
@@ -459,7 +521,7 @@ export const useStore = create<StoreState>((set, get) => ({
       openerText: passage.openerText,
       answerText: passage.answerText,
       departText: place.departText,
-      curioIds: [],
+      curioIds: state.pendingCurioIds,
       createdAt: timestamp,
       placeName: place.name,
       bucketKey: place.bucketKey,
@@ -524,6 +586,9 @@ export const useStore = create<StoreState>((set, get) => ({
       && state.settings.notifyArrival
       && !state.settings.arrivalPermissionAsked;
 
+    const tracePayload = tracePayloadForPull(state.journey, lens.id, card.id, timestamp);
+    void writeTrace(place.bucketKey, tracePayload);
+
     set({
       phase,
       journey,
@@ -535,6 +600,7 @@ export const useStore = create<StoreState>((set, get) => ({
         lensHistory: [lens.id, ...state.mirror.lensHistory],
         recentPulls,
       },
+      pendingCurioIds: [],
       settings: shouldRequestArrivalPermission
         ? { ...state.settings, arrivalPermissionAsked: true }
         : state.settings,
@@ -546,8 +612,38 @@ export const useStore = create<StoreState>((set, get) => ({
     } else {
       runNotifyEffect(get(), get().devFastLegs);
     }
+    void get().loadRoadCairns();
     void persistState(getAppState(get()), get().clockGuard);
   },
+
+  loadRoadCairns: async () => {
+    const state = get();
+    if (!state.onboarded) return;
+    const bucketKey = state.journey.place.bucketKey;
+    const realTraces = state.traceNetworkEnabled
+      ? await readRecentTraces(bucketKey)
+      : [];
+    const latest = get();
+    if (latest.journey.place.bucketKey !== bucketKey) return;
+    const playerSign = Math.max(0, SIGNS.findIndex((sign) => sign.id === latest.journey.signId));
+    const towerIndex = CARDS.findIndex((card) => card.id === 'the_tower');
+    const roadCairns = selectLegCairns({
+      realTraces,
+      seed: latest.journey.seed,
+      now: Date.now(),
+      legId: latest.journey.waymarkIndex,
+      dayIndex: latest.journey.dayIndex,
+      playerSign,
+      signCount: SIGNS.length,
+      lensCount: LENSES.length,
+      cardCount: CARDS.length,
+      interestingCardIndexes: towerIndex >= 0 ? [towerIndex] : [],
+      density: latest.traceDensity,
+    });
+    set({ roadCairns, cairnBucketKey: bucketKey });
+  },
+
+  dismissCurioNotice: () => set({ curioNoticeId: null }),
 
   updateSettings: (patch) => {
     const state = get();
@@ -798,6 +894,64 @@ export const useStore = create<StoreState>((set, get) => ({
       // Notification QA is best-effort and must not affect app state.
     }
   },
+
+  devSpawnCairn: (source) => {
+    const state = get();
+    if (!state.settings.devMode) return;
+    const createdAt = source === 'real'
+      ? Date.now() - 4 * 60 * 60 * 1_000
+      : Date.now() - 3 * 24 * 60 * 60 * 1_000;
+    const trace: LegCairn = {
+      id: makeId(`cairn_${source}`),
+      source,
+      createdAt,
+      position: 0.52,
+      payload: {
+        leg_id: Math.max(0, Math.min(9_999, state.journey.waymarkIndex)),
+        day_index: Math.max(0, state.journey.dayIndex),
+        hour_bucket: new Date(createdAt).getHours(),
+        sign: Math.max(0, SIGNS.findIndex((sign) => sign.id === state.journey.signId)),
+        lens: 0,
+        card: Math.max(0, CARDS.findIndex((card) => card.id === 'the_tower')),
+      },
+    };
+    set({ roadCairns: [trace, ...state.roadCairns].slice(0, 3) });
+  },
+
+  devToggleTraceNetwork: () => {
+    const enabled = !get().traceNetworkEnabled;
+    setTraceNetworkEnabled(enabled);
+    set({ traceNetworkEnabled: enabled });
+    void get().loadRoadCairns();
+  },
+
+  devCycleTraceDensity: () => {
+    const current = get().traceDensity;
+    const density: TraceDensity = current === 'auto' ? 'low' : current === 'low' ? 'high' : 'auto';
+    set({ traceDensity: density });
+    clearTraceSessionCache();
+    void get().loadRoadCairns();
+  },
+
+  devGrantCurio: (rarity) => {
+    const state = get();
+    if (!state.settings.devMode) return;
+    const id = findCurio({
+      seed: rollLegSeed(),
+      dayIndex: state.journey.dayIndex,
+      isRarePlace: false,
+      ownedIds: state.mirror.satchel,
+      candidates: CURIOS,
+      forceRarity: rarity,
+    });
+    if (!id || !getCurio(id)) return;
+    set({
+      mirror: { ...state.mirror, satchel: [...state.mirror.satchel, id] },
+      pendingCurioIds: [...state.pendingCurioIds, id],
+      curioNoticeId: id,
+    });
+    void persistState(getAppState(get()), get().clockGuard);
+  },
 }));
 
 function addRare(raresFound: string[], rareId: string | null): string[] {
@@ -813,6 +967,7 @@ function getAppState(s: StoreState): AppState {
     journey: s.journey,
     chronicle: s.chronicle,
     mirror: s.mirror,
+    pendingCurioIds: s.pendingCurioIds,
     raresFound: s.raresFound,
     settings: s.settings,
     devOffsetMs: s.settings.devMode ? s.devOffsetMs : 0,
@@ -865,6 +1020,22 @@ export function resolveDailySky(journey: JourneyState): {
 function roadMarkForPull(seed: number, dayIndex: number): AspectId | undefined {
   if (unitFromSeed(seed, 0x704d + dayIndex) >= 0.125) return undefined;
   return ASPECT_IDS[Math.floor(unitFromSeed(seed, 0x4a2b + dayIndex) * ASPECT_IDS.length)];
+}
+
+function tracePayloadForPull(
+  journey: JourneyState,
+  lensId: string,
+  cardId: string,
+  timestamp: number,
+): TracePayload {
+  return {
+    leg_id: Math.max(0, Math.min(9_999, Math.floor(journey.waymarkIndex))),
+    day_index: Math.max(0, Math.min(99_999, Math.floor(journey.dayIndex + 1))),
+    hour_bucket: new Date(timestamp).getHours(),
+    sign: Math.max(0, SIGNS.findIndex((sign) => sign.id === journey.signId)),
+    lens: Math.max(0, LENSES.findIndex((lens) => lens.id === lensId)),
+    card: Math.max(0, CARDS.findIndex((card) => card.id === cardId)),
+  };
 }
 
 export { ASPECT_IDS, getWaymark };

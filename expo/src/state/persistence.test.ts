@@ -58,7 +58,7 @@ describe('seeded-world persistence', () => {
     memory.set('vismay_state_v2', JSON.stringify(legacyEnvelope));
 
     const restored = await loadPersistedState();
-    expect(restored?.schemaVersion).toBe(4);
+    expect(restored?.schemaVersion).toBe(5);
     expect(restored?.state.chronicle).toEqual(chronicle);
     expect(restored?.state.journey.place.seed).toBe(restored?.state.journey.seed);
     expect(restored?.state.raresFound).toEqual([]);
@@ -130,6 +130,7 @@ function makeState(seed: number, place: ReturnType<typeof placeFromSeed>): AppSt
       aspects: { tenderness: 0, resolve: 0, craft: 0, sight: 0, solitude: 0, fortune: 0 },
       satchel: [], lensHistory: [], recentPulls: [],
     },
+    pendingCurioIds: [],
     raresFound: [],
     settings: {
       notifyArrival: false,

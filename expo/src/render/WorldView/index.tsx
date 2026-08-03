@@ -26,6 +26,8 @@ export function WorldView({
   characterId,
   accentHex,
   tintHex,
+  cairns,
+  onCairnPress,
   rareId,
   forcedSceneId,
   forcedApproachProgress,
@@ -79,6 +81,8 @@ export function WorldView({
         accentHex={tintHex ?? accentHex}
         tintHex={tintHex}
         walking={walking}
+        cairns={cairns}
+        onCairnPress={onCairnPress}
         sceneProgress={sceneProgress}
         sceneProps={props}
       >
