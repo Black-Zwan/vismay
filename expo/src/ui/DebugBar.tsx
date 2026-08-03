@@ -17,6 +17,8 @@ import {
 } from '@/src/core/time';
 import { selectWalkProgress, useStore } from '@/src/state/store';
 import { ARCHETYPES, BIOME_IDS } from '@/src/world/data';
+import { ASPECT_LIST } from '@/src/content/aspects';
+import { getSign } from '@/src/content/signs';
 import { Text } from '@/src/ui/Text';
 import { colors, spacing } from '@/src/ui/tokens';
 import { useClock } from '@/src/ui/useClock';
@@ -44,6 +46,9 @@ export function DebugBar() {
   const devJumpBiome = useStore((state) => state.devJumpBiome);
   const devSetWalkProgress = useStore((state) => state.devSetWalkProgress);
   const devForcePlace = useStore((state) => state.devForcePlace);
+  const devGrantAspect = useStore((state) => state.devGrantAspect);
+  const devCycleSign = useStore((state) => state.devCycleSign);
+  const devFireArrivalNotification = useStore((state) => state.devFireArrivalNotification);
   const resetAll = useStore((state) => state.resetAll);
   const [forcedDaypart, setForcedDaypart] = useState<Daypart | null>(
     DEV_DAYPART_OVERRIDE.current,
@@ -108,6 +113,11 @@ export function DebugBar() {
         <ToolButton label="reroll seed" onPress={devRerollSeed} />
         <ToolButton label="jump biome" onPress={devJumpBiome} />
         <ToolButton
+          label={`sign ${getSign(journey.signId)?.name ?? journey.signId}`}
+          onPress={devCycleSign}
+        />
+        <ToolButton label="fire arrival notification" onPress={devFireArrivalNotification} />
+        <ToolButton
           label="fast"
           active={devFastLegs}
           onPress={() => devToggleFastLegs(!devFastLegs)}
@@ -117,6 +127,21 @@ export function DebugBar() {
           active={isPlus}
           onPress={() => devTogglePlus(!isPlus)}
         />
+
+        <View style={styles.group}>
+          {ASPECT_LIST.flatMap((aspect) => [
+            <ToolButton
+              key={`${aspect.id}-1`}
+              label={`${aspect.name} +1`}
+              onPress={() => devGrantAspect(aspect.id, 1)}
+            />,
+            <ToolButton
+              key={`${aspect.id}-10`}
+              label={`${aspect.name} +10`}
+              onPress={() => devGrantAspect(aspect.id, 10)}
+            />,
+          ])}
+        </View>
 
         <View style={styles.group}>
           {DAYPARTS.map((part) => (

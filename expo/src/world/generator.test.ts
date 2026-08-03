@@ -4,6 +4,7 @@ import { ARCHETYPES, BIOMES, BIOME_IDS, RARE_LOCATIONS } from './data';
 import {
   biomeForProgress,
   bucketKey,
+  isPendingCopy,
   placeForBucket,
   placeFromSeed,
   propsFromSeed,
@@ -65,5 +66,14 @@ describe('seeded world', () => {
   it('holds the previous biome until the midpoint of a leg', () => {
     expect(biomeForProgress('pinelands', 'river_vale', 0.499)).toBe('pinelands');
     expect(biomeForProgress('pinelands', 'river_vale', 0.5)).toBe('river_vale');
+  });
+
+  it('never exposes placeholder names or departure copy to the player', () => {
+    for (let seed = 0; seed < 100; seed += 1) {
+      const place = placeFromSeed(seed, seed % 9 === 0 ? { forceRare: true } : {});
+      expect(isPendingCopy(place.name)).toBe(false);
+      expect(place.name).not.toMatch(/TODO|placeholder/i);
+      expect(place.departText).not.toMatch(/TODO|placeholder/i);
+    }
   });
 });

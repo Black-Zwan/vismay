@@ -1,10 +1,6 @@
 /**
  * Lenses — the topic asked before a draw.
  *
- * TODO(owner): primaryAspect (+2) and secondaryAspect (+1) are unassigned.
- * The design doc gives one worked example: Love -> Tenderness primary,
- * Sight secondary, 'because noticing is part of caring'. Assign the rest.
- *
  * Launch target is 18 lenses; these 5 are the prototype set.
  */
 
@@ -15,36 +11,36 @@ export const LENSES: LensEntry[] = [
     id: 'lens_love',
     label: 'LOVE',
     glyph: '♥',
-    // primaryAspect: TODO(owner)
-    // secondaryAspect: TODO(owner)
+    primaryAspect: 'tenderness',
+    secondaryAspect: 'sight',
   },
   {
     id: 'lens_work',
     label: 'WORK',
     glyph: '⚒',
-    // primaryAspect: TODO(owner)
-    // secondaryAspect: TODO(owner)
+    primaryAspect: 'craft',
+    secondaryAspect: 'resolve',
   },
   {
     id: 'lens_decision',
     label: 'A DECISION',
     glyph: '⚖',
-    // primaryAspect: TODO(owner)
-    // secondaryAspect: TODO(owner)
+    primaryAspect: 'resolve',
+    secondaryAspect: 'sight',
   },
   {
     id: 'lens_self',
     label: 'MYSELF',
     glyph: '☉',
-    // primaryAspect: TODO(owner)
-    // secondaryAspect: TODO(owner)
+    primaryAspect: 'sight',
+    secondaryAspect: 'solitude',
   },
   {
     id: 'lens_open',
     label: 'OPEN PULL',
     glyph: '✦',
-    // primaryAspect: TODO(owner)
-    // secondaryAspect: TODO(owner)
+    primaryAspect: 'fortune',
+    // The secondary rotates in core so it is deterministic per pull.
   },
 ];
 

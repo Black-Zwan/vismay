@@ -33,6 +33,7 @@ import {
   selectCurrentPlace,
   selectRenderedBiome,
   selectWalkProgress,
+  resolveDailySky,
   useStore,
 } from '@/src/state/store';
 import { daypartFromTimestamp } from '@/src/core/time';
@@ -52,6 +53,7 @@ export default function RoadScreen() {
   const drawCard = useStore((state) => state.drawCard);
   const revealCard = useStore((state) => state.revealCard);
   const finishReading = useStore((state) => state.finishReading);
+  const beginDeparture = useStore((state) => state.beginDeparture);
   const closePull = useStore((state) => state.closePull);
   const place = useStore(selectCurrentPlace);
   const characterAccent = useStore(selectCharacterAccent);
@@ -60,7 +62,7 @@ export default function RoadScreen() {
   const progress = selectWalkProgress(journey, now);
   const renderedBiome = selectRenderedBiome(journey, now);
   const card = pullDraft ? getCard(pullDraft.cardId) : undefined;
-  const tintHex = phase === 'reveal' || phase === 'reading' || phase === 'walk'
+  const tintHex = phase === 'reveal' || phase === 'reading' || phase === 'done' || phase === 'walk'
     ? card?.accentHex
     : undefined;
   const walking = phase === 'traveling' || phase === 'walk';
@@ -77,6 +79,8 @@ export default function RoadScreen() {
 
   const character = getCharacter(journey.characterId);
   const sign = getSign(journey.signId);
+  const sky = resolveDailySky(journey);
+  const watchForSign = sky.watchForSignId ? getSign(sky.watchForSignId) : undefined;
 
   return (
     <View style={styles.root}>
@@ -144,6 +148,17 @@ export default function RoadScreen() {
           answerText={pullDraft.answerText}
           departText={place.departText}
           onOnward={finishReading}
+        />
+      ) : null}
+      {phase === 'done' && sign ? (
+        <SkyOverlay
+          signName={sign.name}
+          signGlyph={sign.glyph}
+          horoscopeText={sky.horoscopeText}
+          watchForSignName={watchForSign?.name}
+          watchForSignGlyph={watchForSign?.glyph}
+          departText={place.departText}
+          onSetOut={beginDeparture}
         />
       ) : null}
     </View>
@@ -298,11 +313,56 @@ function ReadingOverlay({
             <Text variant="label" muted>{lensLabel}</Text>
             <Text style={styles.readingOpener}>{openerText}</Text>
             <Text variant="reading" style={styles.readingAnswer}>{answerText}</Text>
-            <Text variant="reading" muted style={styles.departText}>{departText}</Text>
+            {departText ? (
+              <Text variant="reading" muted style={styles.departText}>{departText}</Text>
+            ) : null}
             <Button label="Onward" onPress={onOnward} style={styles.onward} />
           </Panel>
         </RiseIn>
       </ScrollView>
+    </View>
+  );
+}
+
+function SkyOverlay({
+  signName,
+  signGlyph,
+  horoscopeText,
+  watchForSignName,
+  watchForSignGlyph,
+  departText,
+  onSetOut,
+}: {
+  signName: string;
+  signGlyph: string;
+  horoscopeText?: string;
+  watchForSignName?: string;
+  watchForSignGlyph?: string;
+  departText: string;
+  onSetOut: () => void;
+}) {
+  return (
+    <View style={styles.scrim}>
+      <RiseIn style={styles.skyWidth}>
+        <Panel style={styles.skyPanel}>
+          <Text variant="label" muted>{`The Sky · ${signGlyph}\uFE0E ${signName}`}</Text>
+          {departText ? (
+            <Text variant="reading" muted style={styles.skyDeparture}>{departText}</Text>
+          ) : null}
+          {horoscopeText ? (
+            <Text variant="reading" style={styles.horoscope}>{horoscopeText}</Text>
+          ) : null}
+          <View style={styles.watchBlock}>
+            <Text variant="label" muted>On the Road Ahead</Text>
+            {watchForSignName ? (
+              <Text style={styles.watchSign}>
+                {`${watchForSignGlyph ?? ''}\uFE0E ${watchForSignName}`}
+              </Text>
+            ) : null}
+          </View>
+          <Button label="Set out" onPress={onSetOut} style={styles.onward} />
+        </Panel>
+      </RiseIn>
     </View>
   );
 }
@@ -551,5 +611,27 @@ const styles = StyleSheet.create({
   },
   onward: {
     marginTop: spacing.lg,
+  },
+  skyWidth: {
+    alignSelf: 'stretch',
+  },
+  skyPanel: {
+    backgroundColor: 'rgba(17, 14, 28, 0.9)',
+  },
+  skyDeparture: {
+    marginTop: spacing.md,
+  },
+  horoscope: {
+    marginTop: spacing.lg,
+  },
+  watchBlock: {
+    marginTop: spacing.lg,
+    paddingTop: spacing.md,
+    borderTopColor: colors.line,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  watchSign: {
+    marginTop: spacing.xs,
+    fontSize: 20,
   },
 });

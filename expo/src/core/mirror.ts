@@ -14,6 +14,14 @@ export const ASPECT_IDS: AspectId[] = [
 
 export const TITLE_THRESHOLDS = [10, 26, 52] as const;
 
+const OPEN_PULL_SECONDARIES: AspectId[] = [
+  'tenderness',
+  'resolve',
+  'craft',
+  'sight',
+  'solitude',
+];
+
 const ELEMENT_ASPECT: Record<SignEntry['element'], AspectId> = {
   Fire: 'resolve',
   Earth: 'craft',
@@ -50,20 +58,40 @@ export function scorePull(
   before: Record<AspectId, number>,
   lens: LensEntry,
   card: CardEntry,
+  additions: { secondaryAspect?: AspectId; roadAspect?: AspectId } = {},
 ): Record<AspectId, number> {
   const after = { ...before };
 
   if (lens.primaryAspect) {
     after[lens.primaryAspect] += 2;
   }
-  if (lens.secondaryAspect) {
-    after[lens.secondaryAspect] += 1;
+  const secondaryAspect = additions.secondaryAspect ?? lens.secondaryAspect;
+  if (secondaryAspect) {
+    after[secondaryAspect] += 1;
   }
   if (card.aspect) {
     after[card.aspect] += 1;
   }
+  if (additions.roadAspect) {
+    after[additions.roadAspect] += 1;
+  }
 
   return after;
+}
+
+/** OPEN PULL keeps Fortune primary while its secondary mark turns over time. */
+export function rotatingOpenPullSecondary(pullIndex: number): AspectId {
+  const index = ((Math.floor(pullIndex) % OPEN_PULL_SECONDARIES.length)
+    + OPEN_PULL_SECONDARIES.length) % OPEN_PULL_SECONDARIES.length;
+  return OPEN_PULL_SECONDARIES[index];
+}
+
+/** Return the deepest title tier reached without revealing its thresholds. */
+export function titleTier(score: number): 0 | 1 | 2 | 3 {
+  if (score >= 52) return 3;
+  if (score >= 26) return 2;
+  if (score >= 10) return 1;
+  return 0;
 }
 
 export interface ThresholdCrossing {

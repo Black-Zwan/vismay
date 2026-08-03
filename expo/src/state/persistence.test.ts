@@ -58,18 +58,59 @@ describe('seeded-world persistence', () => {
     memory.set('vismay_state_v2', JSON.stringify(legacyEnvelope));
 
     const restored = await loadPersistedState();
-    expect(restored?.schemaVersion).toBe(3);
+    expect(restored?.schemaVersion).toBe(4);
     expect(restored?.state.chronicle).toEqual(chronicle);
     expect(restored?.state.journey.place.seed).toBe(restored?.state.journey.seed);
     expect(restored?.state.raresFound).toEqual([]);
+    expect(restored?.state.settings.arrivalPermissionAsked).toBe(true);
   });
 
   it('clears every versioned key on reset', async () => {
     memory.set('vismay_state_v1', 'one');
     memory.set('vismay_state_v2', 'two');
     memory.set('vismay_state_v3', 'three');
+    memory.set('vismay_state_v4', 'four');
     await clearPersistedState();
     expect(memory.size).toBe(0);
+  });
+
+  it('migrates v3 placeholder copy without exposing it or losing the entry', async () => {
+    const basePlace = placeFromSeed(18, { biome: 'river_vale' });
+    const pendingName = 'the TODO R06 Willow';
+    const legacy = makeState(basePlace.seed, {
+      ...basePlace,
+      archetypeId: 'willow',
+      bucketKey: 'river_vale:willow',
+      name: pendingName,
+      departText: 'TODO: copy',
+    });
+    const entry = {
+      id: 'entry_pending',
+      dayIndex: 5,
+      waymarkId: 'river_vale:willow',
+      cardId: 'the_moon',
+      lensId: 'lens_love',
+      openerText: `On the 5th day, the wanderer came to ${pendingName}.`,
+      answerText: 'kept',
+      departText: 'TODO: copy',
+      curioIds: [],
+      createdAt: 500,
+      placeName: pendingName,
+      bucketKey: 'river_vale:willow',
+    };
+    const legacyEnvelope = {
+      state: { ...legacy, chronicle: [entry], schemaVersion: 3 },
+      clockGuard: { lastSeenTimestamp: 100, monotonicCounter: 1 },
+      schemaVersion: 3,
+    } as PersistedEnvelope;
+    memory.set('vismay_state_v3', JSON.stringify(legacyEnvelope));
+
+    const restored = await loadPersistedState();
+    expect(restored?.state.chronicle[0].id).toBe(entry.id);
+    expect(restored?.state.chronicle[0].placeName).toBe('the Willow');
+    expect(restored?.state.chronicle[0].openerText).toContain('the Willow');
+    expect(restored?.state.chronicle[0].departText).toBe('');
+    expect(restored?.state.journey.place.name).toBe('the Willow');
   });
 });
 
@@ -90,8 +131,13 @@ function makeState(seed: number, place: ReturnType<typeof placeFromSeed>): AppSt
       satchel: [], lensHistory: [], recentPulls: [],
     },
     raresFound: [],
-    settings: { notifyArrival: false, notifyWeekly: false, devMode: false },
+    settings: {
+      notifyArrival: false,
+      notifyWeekly: false,
+      devMode: false,
+      arrivalPermissionAsked: false,
+    },
     devOffsetMs: 0,
-    schemaVersion: 3,
+    schemaVersion: 4,
   };
 }

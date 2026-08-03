@@ -20,3 +20,16 @@ export const ASPECT_LIST: AspectEntry[] = ASPECT_IDS.map((id) => ASPECTS[id]);
 export function getAspect(id: AspectId): AspectEntry {
   return ASPECTS[id];
 }
+
+/**
+ * Resolve an owner-authored title for a score. The slots deliberately remain
+ * empty until the 18 titles are supplied; the UI omits rather than invents.
+ */
+export function getAspectTitle(id: AspectId, score: number): string | undefined {
+  const titles = ASPECTS[id].titles;
+  if (!titles) return undefined;
+  if (score >= 52) return titles[2];
+  if (score >= 26) return titles[1];
+  if (score >= 10) return titles[0];
+  return undefined;
+}

@@ -7,12 +7,18 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { AppState, PersistedEnvelope, ClockGuard } from './types';
-import { hashSeed, placeFromSeed } from '../world/generator';
-import { BIOME_IDS } from '../world/data';
+import type { AppState, PersistedEnvelope, ClockGuard, ChronicleEntry } from './types';
+import {
+  authoredCopy,
+  authoredPlaceName,
+  hashSeed,
+  isPendingCopy,
+  placeFromSeed,
+} from '../world/generator';
+import { ARCHETYPES, BIOME_IDS } from '../world/data';
 
 /** Current schema version. Bump when AppState shape changes. */
-export const CURRENT_SCHEMA_VERSION = 3;
+export const CURRENT_SCHEMA_VERSION = 4;
 
 function storageKey(version: number): string {
   return `vismay_state_v${version}`;
@@ -160,10 +166,59 @@ function migrateEnvelope(envelope: PersistedEnvelope): PersistedEnvelope {
       schemaVersion: 3,
     };
   }
+  if (current.schemaVersion < 4) {
+    const place = current.state.journey.place;
+    const archetype = ARCHETYPES.find((entry) => entry.id === place.archetypeId);
+    const safePlaceName = authoredPlaceName(place.name, archetype?.noun ?? 'Waymark');
+    current = {
+      ...current,
+      state: {
+        ...current.state,
+        journey: {
+          ...current.state.journey,
+          place: {
+            ...place,
+            name: safePlaceName,
+            departText: authoredCopy(place.departText),
+          },
+        },
+        chronicle: current.state.chronicle.map(sanitizeChronicleEntry),
+        settings: {
+          ...current.state.settings,
+          // v1-v3 asked on launch. Preserve that fact so an upgrader is not
+          // prompted a second time; fresh v4 installs use the contextual flow.
+          arrivalPermissionAsked: true,
+        },
+        schemaVersion: 4,
+      },
+      schemaVersion: 4,
+    };
+  }
   current = {
     ...current,
     state: { ...current.state, schemaVersion: CURRENT_SCHEMA_VERSION },
     schemaVersion: CURRENT_SCHEMA_VERSION,
   };
   return current;
+}
+
+function sanitizeChronicleEntry(entry: ChronicleEntry): ChronicleEntry {
+  const archetypeId = entry.bucketKey?.split(':')[1];
+  const archetype = ARCHETYPES.find((candidate) => candidate.id === archetypeId);
+  const originalPlaceName = entry.placeName;
+  const placeName = originalPlaceName
+    ? authoredPlaceName(originalPlaceName, archetype?.noun ?? 'Waymark')
+    : originalPlaceName;
+  const replacePendingPlace = (text: string): string => {
+    if (!originalPlaceName || !isPendingCopy(originalPlaceName)) return text;
+    return text.split(originalPlaceName).join(placeName ?? 'Waymark');
+  };
+
+  return {
+    ...entry,
+    ...(originalPlaceName ? { placeName } : {}),
+    openerText: replacePendingPlace(entry.openerText),
+    answerText: entry.answerText.replace(/TODO:\s*copy|Placeholder reading\.?/gi, '').trim(),
+    departText: authoredCopy(entry.departText),
+  };
 }

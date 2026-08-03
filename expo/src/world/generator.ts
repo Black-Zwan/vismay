@@ -60,11 +60,11 @@ export function placeFromSeed(seedInput: number, options: PlaceOptions = {}): Wo
       biome,
       archetypeId: archetype.id,
       adjectiveIndex: -1,
-      name: rare.name,
+      name: authoredPlaceName(rare.name, archetype.noun),
       isRare: true,
       rareId: rare.id,
       bucketKey: bucketKey(biome, archetype.id),
-      departText: rare.departText,
+      departText: authoredCopy(rare.departText),
     };
   }
 
@@ -80,11 +80,11 @@ export function placeFromSeed(seedInput: number, options: PlaceOptions = {}): Wo
     biome,
     archetypeId: archetype.id,
     adjectiveIndex,
-    name: `the ${adjective} ${archetype.noun}`,
+    name: authoredPlaceName(`the ${adjective} ${archetype.noun}`, archetype.noun),
     isRare: false,
     rareId: null,
     bucketKey: bucketKey(biome, archetype.id),
-    departText: 'TODO: copy',
+    departText: '',
   };
 }
 
@@ -107,12 +107,29 @@ export function placeForBucket(
     biome,
     archetypeId,
     adjectiveIndex,
-    name: `the ${definition.adjectives[adjectiveIndex]} ${archetype.noun}`,
+    name: authoredPlaceName(
+      `the ${definition.adjectives[adjectiveIndex]} ${archetype.noun}`,
+      archetype.noun,
+    ),
     isRare: false,
     rareId: null,
     bucketKey: bucketKey(biome, archetypeId),
-    departText: 'TODO: copy',
+    departText: '',
   };
+}
+
+/** Player-safe fallback while owner-authored procedural copy is incomplete. */
+export function authoredPlaceName(candidate: string, archetypeNoun: string): string {
+  return isPendingCopy(candidate) ? `the ${archetypeNoun}` : candidate;
+}
+
+/** Internal placeholders must never leak into the Road or Chronicle. */
+export function authoredCopy(candidate: string): string {
+  return isPendingCopy(candidate) ? '' : candidate;
+}
+
+export function isPendingCopy(candidate: string | undefined): boolean {
+  return !candidate || /\bTODO\b|\bplaceholder\b/i.test(candidate);
 }
 
 export function chooseBiome(seed: number, currentBiome?: BiomeId): BiomeId {

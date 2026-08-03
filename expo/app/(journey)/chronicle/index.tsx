@@ -60,7 +60,9 @@ export default function ChronicleScreen() {
               </Pressable>
               <PassageText {...passageProps} text={item.openerText} style={styles.opener} />
               <PassageText {...passageProps} text={item.answerText} variant="reading" style={styles.answer} />
-              <Text variant="reading" muted style={styles.departure}>{item.departText}</Text>
+              {item.departText ? (
+                <Text variant="reading" muted style={styles.departure}>{item.departText}</Text>
+              ) : null}
             </View>
           );
         }}
