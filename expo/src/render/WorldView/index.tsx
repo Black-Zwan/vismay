@@ -11,11 +11,14 @@ import { PropLayers } from './PropLayers';
 import type { WorldViewProps } from './types';
 
 export { CharacterPreview } from './CharacterSprite';
+export { WorldPropSpriteQa } from './PropLayers';
+export { PassageShareCard, SHARE_CARD_SIZE, type ShareCardShape } from './PassageShareCard';
 
 export function WorldView({
   daypart,
   seed,
   biome,
+  archetypeId,
   walkProgress,
   walking: walkingOverride,
   characterId,
@@ -61,6 +64,8 @@ export function WorldView({
         daypart={daypart}
         seed={seed}
         biome={biome}
+        archetypeId={archetypeId}
+        walkProgress={walkProgress}
         accentHex={tintHex ?? accentHex}
         tintHex={tintHex}
         walking={walking}

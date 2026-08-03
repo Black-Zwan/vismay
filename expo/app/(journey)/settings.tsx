@@ -11,12 +11,18 @@ import { Panel } from '@/src/ui/Panel';
 import { useAccentColor } from '@/src/ui/AccentColor';
 import { Text } from '@/src/ui/Text';
 import { colors, spacing } from '@/src/ui/tokens';
-import { useStore } from '@/src/state/store';
+import { selectCharacterAccent, useStore } from '@/src/state/store';
+import { WorldPropSpriteQa } from '@/src/render/WorldView';
+import { daypartFromTimestamp } from '@/src/core/time';
+import { useClock } from '@/src/ui/useClock';
 
 export default function SettingsScreen() {
   const settings = useStore((s) => s.settings);
   const updateSettings = useStore((s) => s.updateSettings);
   const resetAll = useStore((s) => s.resetAll);
+  const biome = useStore((s) => s.journey.biome);
+  const accentHex = useStore(selectCharacterAccent);
+  const clock = useClock();
 
   const resetJourney = () => {
     void resetAll().then(() => router.replace('/onboarding/character'));
@@ -57,6 +63,19 @@ export default function SettingsScreen() {
           onToggle={(v) => updateSettings({ devMode: v })}
         />
       </Panel>
+
+      {settings.devMode ? (
+        <Panel>
+          <Text variant="label" muted>Prop sprite QA · 30 / 55 / 100 / 170 px</Text>
+          <View style={styles.propQa}>
+            <WorldPropSpriteQa
+              daypart={daypartFromTimestamp(clock)}
+              biome={biome}
+              accentHex={accentHex}
+            />
+          </View>
+        </Panel>
+      ) : null}
 
       <Panel>
         <View style={styles.resetBlock}>
@@ -102,4 +121,5 @@ const styles = StyleSheet.create({
   resetBlock: {
     gap: spacing.sm,
   },
+  propQa: { marginTop: spacing.sm },
 });

@@ -15,7 +15,8 @@ import {
   now,
   type Daypart,
 } from '@/src/core/time';
-import { useStore } from '@/src/state/store';
+import { selectWalkProgress, useStore } from '@/src/state/store';
+import { ARCHETYPES, BIOME_IDS } from '@/src/world/data';
 import { Text } from '@/src/ui/Text';
 import { colors, spacing } from '@/src/ui/tokens';
 import { useClock } from '@/src/ui/useClock';
@@ -32,6 +33,7 @@ export function DebugBar() {
   const devFastLegs = useStore((state) => state.devFastLegs);
   const isPlus = useStore((state) => state.journey.isPlus);
   const seed = useStore((state) => state.journey.seed);
+  const journey = useStore((state) => state.journey);
   const devSetTimeOffset = useStore((state) => state.devSetTimeOffset);
   const devForceArrival = useStore((state) => state.devForceArrival);
   const devToggleFastLegs = useStore((state) => state.devToggleFastLegs);
@@ -40,16 +42,19 @@ export function DebugBar() {
   const devForceRare = useStore((state) => state.devForceRare);
   const devRerollSeed = useStore((state) => state.devRerollSeed);
   const devJumpBiome = useStore((state) => state.devJumpBiome);
+  const devSetWalkProgress = useStore((state) => state.devSetWalkProgress);
+  const devForcePlace = useStore((state) => state.devForcePlace);
   const resetAll = useStore((state) => state.resetAll);
   const [forcedDaypart, setForcedDaypart] = useState<Daypart | null>(
     DEV_DAYPART_OVERRIDE.current,
   );
 
-  useClock(250);
+  const clock = useClock(250);
   if (!devMode) return null;
 
   const shiftedTime = now();
   const daypart = daypartFromTimestamp(shiftedTime);
+  const progress = selectWalkProgress(journey, clock);
 
   const stepOffset = (amount: number) => devSetTimeOffset(devOffsetMs + amount);
   const forceDaypart = (part: Daypart | null) => {
@@ -86,6 +91,8 @@ export function DebugBar() {
           </Text>
           <Text style={styles.readout}>{`seed ${seed}`}</Text>
           <TimeSlider value={devOffsetMs} onChange={devSetTimeOffset} />
+          <Text style={styles.readout}>{`${Math.round(progress * 100)}% · ${journey.biome}:${journey.place.archetypeId}`}</Text>
+          <ProgressSlider value={progress} onChange={devSetWalkProgress} />
         </View>
 
         <ToolButton label="+1h" onPress={() => stepOffset(HOUR_MS)} />
@@ -93,6 +100,10 @@ export function DebugBar() {
         <ToolButton label="+1d" onPress={() => stepOffset(24 * HOUR_MS)} />
         <ToolButton label="time 0" onPress={() => devSetTimeOffset(0)} />
         <ToolButton label="arrival +1" onPress={devForceArrival} />
+        <ToolButton label="progress 0" onPress={() => devSetWalkProgress(0)} />
+        <ToolButton label="progress 55" onPress={() => devSetWalkProgress(0.55)} />
+        <ToolButton label="progress 75" onPress={() => devSetWalkProgress(0.75)} />
+        <ToolButton label="progress 100" onPress={() => devSetWalkProgress(1)} />
         <ToolButton label="force rare" onPress={devForceRare} />
         <ToolButton label="reroll seed" onPress={devRerollSeed} />
         <ToolButton label="jump biome" onPress={devJumpBiome} />
@@ -123,8 +134,55 @@ export function DebugBar() {
           />
         </View>
 
+        <View style={styles.group}>
+          {BIOME_IDS.flatMap((biome) =>
+            ARCHETYPES.filter((archetype) => archetype.biomes.includes(biome)).map((archetype) => (
+              <ToolButton
+                key={`${biome}:${archetype.id}`}
+                label={`${biomeLabel(biome)}:${archetype.id}`}
+                active={journey.biome === biome && journey.place.archetypeId === archetype.id}
+                onPress={() => devForcePlace(biome, archetype.id)}
+              />
+            )),
+          )}
+        </View>
+
         <ToolButton label="reset state" danger onPress={confirmReset} />
       </ScrollView>
+    </View>
+  );
+}
+
+function ProgressSlider({ value, onChange }: { value: number; onChange: (value: number) => void }) {
+  const trackRef = useRef<View>(null);
+  const updateFromEvent = (event: GestureResponderEvent) => {
+    const pageX = event.nativeEvent.pageX;
+    trackRef.current?.measureInWindow((x, _y, width) => {
+      if (width <= 0) return;
+      onChange(Math.round(Math.max(0, Math.min(1, (pageX - x) / width)) * 100) / 100);
+    });
+  };
+
+  return (
+    <View
+      ref={trackRef}
+      accessible
+      accessibilityRole="adjustable"
+      accessibilityLabel="Walk progress"
+      accessibilityValue={{ min: 0, max: 100, now: Math.round(value * 100) }}
+      accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+      onAccessibilityAction={(event) => {
+        if (event.nativeEvent.actionName === 'increment') onChange(value + 0.01);
+        if (event.nativeEvent.actionName === 'decrement') onChange(value - 0.01);
+      }}
+      onStartShouldSetResponder={() => true}
+      onMoveShouldSetResponder={() => true}
+      onResponderGrant={updateFromEvent}
+      onResponderMove={updateFromEvent}
+      style={styles.slider}
+    >
+      <View style={[styles.progressFill, { width: `${value * 100}%` }]} />
+      <View style={[styles.sliderThumb, { left: `${value * 100}%` }]} />
     </View>
   );
 }
@@ -204,6 +262,10 @@ function formatOffset(offsetMs: number): string {
   return `${hours > 0 ? '+' : ''}${hours.toFixed(hours % 1 === 0 ? 0 : 2)}h`;
 }
 
+function biomeLabel(biome: (typeof BIOME_IDS)[number]): string {
+  return biome.split('_').map((part) => part[0]).join('').toUpperCase();
+}
+
 const styles = StyleSheet.create({
   root: {
     backgroundColor: colors.background,
@@ -234,6 +296,10 @@ const styles = StyleSheet.create({
     width: 190,
   },
   sliderFill: {
+    backgroundColor: colors.textMuted,
+    height: 2,
+  },
+  progressFill: {
     backgroundColor: colors.textMuted,
     height: 2,
   },

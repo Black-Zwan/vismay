@@ -10,6 +10,7 @@ export interface WorldViewProps {
   daypart: Daypart;
   seed: number;
   biome: BiomeId;
+  archetypeId: string;
   walkProgress: number; // 0..1
   walking?: boolean;
   characterId: string;

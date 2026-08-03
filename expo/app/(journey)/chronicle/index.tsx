@@ -6,7 +6,6 @@ import { router } from 'expo-router';
 import React from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 
-import { Panel } from '@/src/ui/Panel';
 import { Text } from '@/src/ui/Text';
 import { PassageText } from '@/src/ui/PassageText';
 import { colors, spacing } from '@/src/ui/tokens';
@@ -40,34 +39,35 @@ export default function ChronicleScreen() {
           const card = getCard(item.cardId);
           const wm = getWaymark(item.waymarkId);
           const lens = getLens(item.lensId);
+          const openEntry = () => router.push(`/chronicle/${item.id}`);
+          const passageProps = {
+            lensLabel: `${lens?.glyph ?? ''} ${lens?.label ?? 'Lens'}`.trim(),
+            cardName: card?.name ?? 'Card',
+            accentHex: card?.accentHex,
+            onCardPress: openEntry,
+          };
           return (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => router.push(`/chronicle/${item.id}`)}
-              style={({ pressed }) => [pressed && { opacity: 0.6 }]}
-            >
-              <Panel style={styles.row}>
-                <Text variant="caption" muted>{`Day ${item.dayIndex}`}</Text>
-                <Text>{item.placeName ?? wm?.name ?? 'Waymark'} — {card?.name ?? 'Card'}</Text>
-                <Text variant="caption" muted style={{ marginTop: 2 }}>
-                  {lens?.label ?? 'Lens'} · {new Date(item.createdAt).toLocaleDateString()}
+            <View style={styles.row}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Open day ${item.dayIndex}`}
+                onPress={openEntry}
+                style={({ pressed }) => [styles.rubric, pressed && styles.pressed]}
+              >
+                <Text variant="caption" muted>
+                  {`Day ${item.dayIndex} · ${item.placeName ?? wm?.name ?? 'Waymark'}`}
                 </Text>
-                <PassageText
-                  text={item.answerText}
-                  lensLabel={`${lens?.glyph ?? ''} ${lens?.label ?? 'Lens'}`.trim()}
-                  cardName={card?.name ?? 'Card'}
-                  accentHex={card?.accentHex}
-                  variant="caption"
-                  muted
-                  numberOfLines={2}
-                  style={{ marginTop: 4 }}
-                />
-              </Panel>
-            </Pressable>
+              </Pressable>
+              <PassageText {...passageProps} text={item.openerText} style={styles.opener} />
+              <PassageText {...passageProps} text={item.answerText} variant="reading" style={styles.answer} />
+              <Text variant="reading" muted style={styles.departure}>{item.departText}</Text>
+            </View>
           );
         }}
-        ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
-        contentContainerStyle={{ padding: spacing.md }}
+        ItemSeparatorComponent={() => (
+          <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.ornament}>⁘</Text>
+        )}
+        contentContainerStyle={styles.content}
       />
     </View>
   );
@@ -76,5 +76,19 @@ export default function ChronicleScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.background },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
-  row: { marginBottom: 0 },
+  content: { paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
+  row: { paddingVertical: spacing.sm },
+  rubric: { alignSelf: 'flex-start', paddingVertical: 2 },
+  pressed: { opacity: 0.6 },
+  opener: { marginTop: spacing.xs },
+  answer: { marginTop: spacing.sm },
+  departure: { marginTop: spacing.sm },
+  ornament: {
+    color: colors.textMuted,
+    fontSize: 20,
+    lineHeight: 24,
+    opacity: 0.65,
+    textAlign: 'center',
+    marginVertical: spacing.xs,
+  },
 });

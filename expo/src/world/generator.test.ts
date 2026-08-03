@@ -4,6 +4,7 @@ import { ARCHETYPES, BIOMES, BIOME_IDS, RARE_LOCATIONS } from './data';
 import {
   biomeForProgress,
   bucketKey,
+  placeForBucket,
   placeFromSeed,
   propsFromSeed,
   shouldGuaranteeFirstRare,
@@ -51,6 +52,14 @@ describe('seeded world', () => {
 
   it('builds cairn buckets from the resolved biome and archetype', () => {
     expect(bucketKey('ashen_waste', 'bell')).toBe('ashen_waste:bell');
+  });
+
+  it('forces only valid authored biome and archetype buckets for visual QA', () => {
+    const place = placeForBucket(3_417_128, 'river_vale', 'willow');
+    expect(place?.bucketKey).toBe('river_vale:willow');
+    expect(place?.biome).toBe('river_vale');
+    expect(place?.archetypeId).toBe('willow');
+    expect(placeForBucket(3_417_128, 'ashen_waste', 'willow')).toBeNull();
   });
 
   it('holds the previous biome until the midpoint of a leg', () => {

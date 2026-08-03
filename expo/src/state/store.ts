@@ -59,6 +59,7 @@ import { BIOME_IDS } from '@/src/world/data';
 import {
   biomeForProgress,
   placeFromSeed,
+  placeForBucket,
   shouldGuaranteeFirstRare,
   unitFromSeed,
 } from '@/src/world/generator';
@@ -112,6 +113,8 @@ export interface StoreState extends AppState {
   devForceRare: () => void;
   devRerollSeed: () => void;
   devJumpBiome: () => void;
+  devSetWalkProgress: (progress: number) => void;
+  devForcePlace: (biome: BiomeId, archetypeId: string) => void;
 }
 
 function rollLegSeed(): number {
@@ -578,6 +581,42 @@ export const useStore = create<StoreState>((set, get) => ({
     const currentIndex = BIOME_IDS.indexOf(state.journey.biome);
     const biome = BIOME_IDS[(currentIndex + 1) % BIOME_IDS.length];
     const place = placeFromSeed(state.journey.seed, { biome });
+    set({
+      journey: {
+        ...state.journey,
+        previousBiome: biome,
+        biome,
+        place,
+      },
+    });
+    void persistState(getAppState(get()), get().clockGuard);
+  },
+
+  devSetWalkProgress: (progress) => {
+    const state = get();
+    if (!state.settings.devMode || !state.onboarded) return;
+    const bounded = Math.max(0, Math.min(1, progress));
+    const timestamp = now();
+    const duration = state.journey.legDurationMs;
+    const legStartedAt = timestamp - duration * bounded;
+    const arrived = bounded >= 1;
+    const journey = {
+      ...state.journey,
+      legStartedAt,
+      arrivalAt: legStartedAt + duration,
+      bankedArrivals: arrived
+        ? Math.max(1, state.journey.bankedArrivals)
+        : 0,
+    };
+    set({ journey, phase: arrived ? 'arrive' : 'traveling' });
+    void persistState(getAppState(get()), get().clockGuard);
+  },
+
+  devForcePlace: (biome, archetypeId) => {
+    const state = get();
+    if (!state.settings.devMode) return;
+    const place = placeForBucket(state.journey.seed, biome, archetypeId);
+    if (!place) return;
     set({
       journey: {
         ...state.journey,

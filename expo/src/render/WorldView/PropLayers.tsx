@@ -10,6 +10,8 @@ import { propsFromSeed, unitFromSeed } from '@/src/world/generator';
 import type { BiomeId, WorldPropKind } from '@/src/world/types';
 
 import { ROAD_SCROLL_PX_PER_SECOND } from './motion';
+import { LandmarkApproach } from './LandmarkApproach';
+import { isPropSpriteKind, PropSprite, PropSpriteQa } from './PropSprite';
 
 const HORIZON = 0.54;
 const HORIZON_PCT = (1 - HORIZON) * 100;
@@ -64,6 +66,8 @@ const PROP_HEIGHT_MULTIPLIER: Record<WorldPropKind, number> = {
   bone: 0.42,
   spire: 0.7,
   obelisk: 0.7,
+  palm: 1,
+  wagon: 0.68,
 };
 
 type LayerKey = keyof typeof LAYERS;
@@ -80,12 +84,15 @@ type PropPalette = {
   near: Rgb;
   foreground: Rgb;
   accent: Rgb;
+  highlight: Rgb;
 };
 
 type PropLayersProps = {
   daypart: Daypart;
   seed: number;
   biome: BiomeId;
+  archetypeId: string;
+  walkProgress: number;
   accentHex: string;
   tintHex?: string;
   walking: boolean;
@@ -96,6 +103,8 @@ export function PropLayers({
   daypart,
   seed,
   biome,
+  archetypeId,
+  walkProgress,
   accentHex,
   tintHex,
   walking,
@@ -105,12 +114,36 @@ export function PropLayers({
 
   return (
     <View style={styles.root}>
-      <ParallaxBand layer="far" seed={seed} biome={biome} fill={rgbCss(palette.far)} accent={rgbCss(palette.accent)} walking={walking} />
-      <ParallaxBand layer="mid" seed={seed} biome={biome} fill={rgbCss(palette.far)} accent={rgbCss(palette.accent)} walking={walking} />
-      <ParallaxBand layer="near" seed={seed} biome={biome} fill={rgbCss(palette.near)} accent={rgbCss(palette.accent)} walking={walking} />
+      <ParallaxBand layer="far" seed={seed} biome={biome} fill={rgbCss(palette.far)} highlight={rgbCss(palette.highlight)} accent={rgbCss(palette.accent)} walking={walking} />
+      <ParallaxBand layer="mid" seed={seed} biome={biome} fill={rgbCss(palette.far)} highlight={rgbCss(palette.highlight)} accent={rgbCss(palette.accent)} walking={walking} />
+      <ParallaxBand layer="near" seed={seed} biome={biome} fill={rgbCss(palette.near)} highlight={rgbCss(palette.highlight)} accent={rgbCss(palette.accent)} walking={walking} />
+      <LandmarkApproach
+        archetypeId={archetypeId}
+        walkProgress={walkProgress}
+        bodyColor={rgbCss(palette.near)}
+        highlightColor={rgbCss(palette.highlight)}
+      />
       {children}
-      <ParallaxBand layer="foreground" seed={seed} biome={biome} fill={rgbCss(palette.foreground)} accent={rgbCss(palette.accent)} walking={walking} />
+      <ParallaxBand layer="foreground" seed={seed} biome={biome} fill={rgbCss(palette.foreground)} highlight={rgbCss(palette.highlight)} accent={rgbCss(palette.accent)} walking={walking} />
     </View>
+  );
+}
+
+export function WorldPropSpriteQa({
+  daypart,
+  biome,
+  accentHex,
+}: {
+  daypart: Daypart;
+  biome: BiomeId;
+  accentHex: string;
+}) {
+  const palette = makePropPalette(daypart, biome, accentHex);
+  return (
+    <PropSpriteQa
+      bodyColor={rgbCss(palette.near)}
+      highlightColor={rgbCss(palette.highlight)}
+    />
   );
 }
 
@@ -119,6 +152,7 @@ function ParallaxBand({
   seed,
   biome,
   fill,
+  highlight,
   accent,
   walking,
 }: {
@@ -126,6 +160,7 @@ function ParallaxBand({
   seed: number;
   biome: BiomeId;
   fill: string;
+  highlight: string;
   accent: string;
   walking: boolean;
 }) {
@@ -153,7 +188,7 @@ function ParallaxBand({
               { left: prop.x + offset, bottom: `${prop.bottom}%` },
             ]}
           >
-            <PropArt kind={prop.kind} height={prop.height} fill={fill} accent={accent} />
+            <PropArt kind={prop.kind} height={prop.height} fill={fill} highlight={highlight} accent={accent} sprite={layer === 'near'} />
           </View>
         )),
       )}
@@ -227,13 +262,28 @@ function PropArt({
   kind,
   height,
   fill,
+  highlight,
   accent,
+  sprite,
 }: {
   kind: WorldPropKind;
   height: number;
   fill: string;
+  highlight: string;
   accent: string;
+  sprite: boolean;
 }) {
+  if (sprite && isPropSpriteKind(kind)) {
+    return (
+      <PropSprite
+        kind={kind}
+        height={height}
+        bodyColor={fill}
+        highlightColor={highlight}
+      />
+    );
+  }
+
   if (kind === 'stone' || kind === 'boulder' || kind === 'bone') {
     return (
       <View
@@ -282,6 +332,11 @@ function PropArt({
 
   const tree = <Pine height={height} fill={fill} />;
   if (kind === 'pine' || kind === 'willow' || kind === 'deadtree') return tree;
+
+  if (kind === 'palm') return tree;
+  if (kind === 'wagon') {
+    return <View style={{ width: height * 0.9, height: height * 0.42, borderRadius: 2, backgroundColor: fill }} />;
+  }
 
   return (
     <View style={{ width: height * 0.62, height }}>
@@ -366,6 +421,7 @@ function makePropPalette(
     near: sink(plane, 0.38),
     foreground: sink(plane, 0.68),
     accent: hx(accentHex),
+    highlight: mix(far, plane, 0.35),
   };
 }
 
@@ -375,6 +431,7 @@ function mixPropPalette(from: PropPalette, to: PropPalette, amount: number): Pro
     near: mix(from.near, to.near, amount),
     foreground: mix(from.foreground, to.foreground, amount),
     accent: mix(from.accent, to.accent, amount),
+    highlight: mix(from.highlight, to.highlight, amount),
   };
 }
 

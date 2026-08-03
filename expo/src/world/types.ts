@@ -17,7 +17,9 @@ export type WorldPropKind =
   | 'bone'
   | 'shroom'
   | 'spire'
-  | 'obelisk';
+  | 'obelisk'
+  | 'palm'
+  | 'wagon';
 
 export interface BiomeDefinition {
   id: BiomeId;

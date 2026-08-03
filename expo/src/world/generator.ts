@@ -88,6 +88,33 @@ export function placeFromSeed(seedInput: number, options: PlaceOptions = {}): Wo
   };
 }
 
+/** Deterministic dev/QA entry point for a specific authored biome/archetype bucket. */
+export function placeForBucket(
+  seedInput: number,
+  biome: BiomeId,
+  archetypeId: string,
+): WorldPlace | null {
+  const archetype = ARCHETYPES.find(
+    (entry) => entry.id === archetypeId && entry.biomes.includes(biome),
+  );
+  if (!archetype) return null;
+
+  const seed = seedInput >>> 0;
+  const definition = BIOMES[biome];
+  const adjectiveIndex = hashSeed(seed, 4) % definition.adjectives.length;
+  return {
+    seed,
+    biome,
+    archetypeId,
+    adjectiveIndex,
+    name: `the ${definition.adjectives[adjectiveIndex]} ${archetype.noun}`,
+    isRare: false,
+    rareId: null,
+    bucketKey: bucketKey(biome, archetypeId),
+    departText: 'TODO: copy',
+  };
+}
+
 export function chooseBiome(seed: number, currentBiome?: BiomeId): BiomeId {
   if (!currentBiome) return BIOME_IDS[hashSeed(seed, 5) % BIOME_IDS.length];
   const currentIndex = BIOME_IDS.indexOf(currentBiome);

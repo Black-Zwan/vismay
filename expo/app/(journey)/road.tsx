@@ -85,6 +85,7 @@ export default function RoadScreen() {
           daypart={daypart}
           seed={journey.seed}
           biome={renderedBiome}
+          archetypeId={place.archetypeId}
           walkProgress={progress}
           walking={walking}
           characterId={journey.characterId}
