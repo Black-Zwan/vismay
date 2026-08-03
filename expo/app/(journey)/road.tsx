@@ -30,7 +30,8 @@ import { colors, radius, spacing } from '@/src/ui/tokens';
 import { WorldView } from '@/src/render/WorldView';
 import {
   selectCharacterAccent,
-  selectCurrentWaymark,
+  selectCurrentPlace,
+  selectRenderedBiome,
   selectWalkProgress,
   useStore,
 } from '@/src/state/store';
@@ -52,11 +53,12 @@ export default function RoadScreen() {
   const revealCard = useStore((state) => state.revealCard);
   const finishReading = useStore((state) => state.finishReading);
   const closePull = useStore((state) => state.closePull);
-  const waymark = useStore(selectCurrentWaymark);
+  const place = useStore(selectCurrentPlace);
   const characterAccent = useStore(selectCharacterAccent);
   const now = useClock();
   const daypart = daypartFromTimestamp(now);
   const progress = selectWalkProgress(journey, now);
+  const renderedBiome = selectRenderedBiome(journey, now);
   const card = pullDraft ? getCard(pullDraft.cardId) : undefined;
   const tintHex = phase === 'reveal' || phase === 'reading' || phase === 'walk'
     ? card?.accentHex
@@ -81,7 +83,8 @@ export default function RoadScreen() {
       <View style={styles.world}>
         <WorldView
           daypart={daypart}
-          waymarkId={waymark.id}
+          seed={journey.seed}
+          biome={renderedBiome}
           walkProgress={progress}
           walking={walking}
           characterId={journey.characterId}
@@ -107,8 +110,8 @@ export default function RoadScreen() {
             <Text>{character?.name ?? 'Character'} {sign ? `${sign.glyph}\uFE0E` : ''}</Text>
             <Text variant="caption" muted style={styles.statusLine}>
               {phase === 'arrive'
-                ? `Arrived at ${waymark.name}. ${journey.bankedArrivals > 1 ? `${journey.bankedArrivals} draws waiting.` : ''}`
-                : `Walking to ${waymark.name}.`}
+                ? `Arrived at ${place.name}. ${journey.bankedArrivals > 1 ? `${journey.bankedArrivals} draws waiting.` : ''}`
+                : `Walking to ${place.name}.`}
             </Text>
             <Text variant="caption" muted>{`progress ${Math.round(progress * 100)}%`}</Text>
 
@@ -138,7 +141,7 @@ export default function RoadScreen() {
           lensLabel={getLens(pullDraft.lensId)?.label ?? ''}
           openerText={pullDraft.openerText}
           answerText={pullDraft.answerText}
-          departText={waymark.departText}
+          departText={place.departText}
           onOnward={finishReading}
         />
       ) : null}

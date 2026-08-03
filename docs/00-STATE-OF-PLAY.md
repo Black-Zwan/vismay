@@ -12,7 +12,7 @@ Before this repo existed, the product was prototyped as a single-file React web 
 
 - **Navigation** — Expo Router, onboarding → journey tabs; the pull ritual renders in place on Road
 - **State** — Zustand store, types exactly as specified, no drift
-- **Persistence** — single versioned AsyncStorage key, 400ms debounce, swappable `StorageBackend` interface, migration hook on `schemaVersion`. This layer is good; leave it alone.
+- **Persistence** — single versioned AsyncStorage key, 400ms debounce, swappable `StorageBackend` interface, schema v3 migration preserving Chronicle and adding seeded legs / rare collection.
 - **Notifications** — local scheduling at `arrivalAt`, cancel/reschedule on state change, settings toggles honored
 - **Dev panel** — force arrival, fast legs (20s), force daypart, reset state
 - **Render seam** — `WorldView` is properly isolated behind a props interface
@@ -62,7 +62,7 @@ Aspects initialize to 25 each. They should initialize to 0, with a hidden +3 see
 | The Chronicle passage assembler | Entries persist; template assembly unwritten |
 | Illustrated card faces | None. Eight were produced in an earlier build and the source is missing. |
 | Character sprites | None in the repo. Two exist as base64 in `reference/`. |
-| The real world renderer | Placeholder only. Blocked on the Skia spike. |
+| The seeded world | Deterministic five-biome WebGL renderer, persisted leg seed, prop layout, rarity and offline cairn seam. Authored place adjectives and rare copy remain TODO. |
 | Cairns / traces | Client stub only, unimported. Deliberate. |
 | Curios | Types and placeholder rows only |
 | Purchases | Stub only. `isPlus` is a plain boolean nothing sets. |

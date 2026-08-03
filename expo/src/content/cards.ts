@@ -108,6 +108,7 @@ export function getCard(id: string): CardEntry | undefined {
   return CARDS.find((c) => c.id === id);
 }
 
-export function pickCardForPull(): CardEntry {
-  return CARDS[Math.floor(Math.random() * CARDS.length)];
+export function pickCardForPull(unitRoll: number): CardEntry {
+  const bounded = Math.max(0, Math.min(0.999999999, unitRoll));
+  return CARDS[Math.floor(bounded * CARDS.length)];
 }

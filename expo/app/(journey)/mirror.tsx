@@ -11,9 +11,11 @@ import { colors, spacing } from '@/src/ui/tokens';
 import { ASPECT_LIST } from '@/src/content/aspects';
 import { useStore } from '@/src/state/store';
 import { getCurio } from '@/src/content/curios';
+import { getRareLocation } from '@/src/world/data';
 
 export default function MirrorScreen() {
   const mirror = useStore((s) => s.mirror);
+  const raresFound = useStore((s) => s.raresFound);
 
   return (
     <ScrollView style={styles.root} contentContainerStyle={{ padding: spacing.md, gap: spacing.md }}>
@@ -49,6 +51,19 @@ export default function MirrorScreen() {
                 </View>
               );
             })}
+          </View>
+        )}
+      </Panel>
+
+      <Panel>
+        <Text variant="label" muted>Rare places</Text>
+        {raresFound.length === 0 ? (
+          <Text muted style={{ marginTop: spacing.sm }}>None found.</Text>
+        ) : (
+          <View style={{ marginTop: spacing.sm, gap: spacing.xs }}>
+            {raresFound.map((id) => (
+              <Text key={id}>{getRareLocation(id)?.name ?? id}</Text>
+            ))}
           </View>
         )}
       </Panel>

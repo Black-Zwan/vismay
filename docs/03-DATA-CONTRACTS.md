@@ -20,6 +20,11 @@ interface JourneyState {
   bankedArrivals: number;    // 0..5
   stepsWalked: number;
   isPlus: boolean;
+  seed: number;                // uint32 rolled once at departure
+  biome: BiomeId;              // destination biome
+  previousBiome: BiomeId;      // held until the mid-leg transition
+  place: WorldPlace;           // resolved and frozen for this leg
+  arrivalsSinceRare: number;   // soft-pity input
 }
 
 interface ChronicleEntry {
@@ -33,6 +38,8 @@ interface ChronicleEntry {
   departText: string;
   curioIds: string[];
   createdAt: number;
+  placeName?: string;          // generated entries freeze the resolved name
+  bucketKey?: string;          // generated entries freeze biome:archetype
 }
 
 type AspectId = 'tenderness' | 'resolve' | 'craft' | 'sight' | 'solitude' | 'fortune';
@@ -56,6 +63,7 @@ interface AppState {
   journey: JourneyState;
   chronicle: ChronicleEntry[];
   mirror: MirrorState;
+  raresFound: string[];        // first-found rare ids; repeats do not append
   settings: Settings;
   schemaVersion: number;
 }

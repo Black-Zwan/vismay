@@ -31,11 +31,15 @@ export function DebugBar() {
   const devOffsetMs = useStore((state) => state.devOffsetMs);
   const devFastLegs = useStore((state) => state.devFastLegs);
   const isPlus = useStore((state) => state.journey.isPlus);
+  const seed = useStore((state) => state.journey.seed);
   const devSetTimeOffset = useStore((state) => state.devSetTimeOffset);
   const devForceArrival = useStore((state) => state.devForceArrival);
   const devToggleFastLegs = useStore((state) => state.devToggleFastLegs);
   const devTogglePlus = useStore((state) => state.devTogglePlus);
   const devForceDaypart = useStore((state) => state.devForceDaypart);
+  const devForceRare = useStore((state) => state.devForceRare);
+  const devRerollSeed = useStore((state) => state.devRerollSeed);
+  const devJumpBiome = useStore((state) => state.devJumpBiome);
   const resetAll = useStore((state) => state.resetAll);
   const [forcedDaypart, setForcedDaypart] = useState<Daypart | null>(
     DEV_DAYPART_OVERRIDE.current,
@@ -80,6 +84,7 @@ export function DebugBar() {
           <Text style={styles.readout}>
             {`${formatClock(shiftedTime)} · ${daypart} · ${formatOffset(devOffsetMs)}`}
           </Text>
+          <Text style={styles.readout}>{`seed ${seed}`}</Text>
           <TimeSlider value={devOffsetMs} onChange={devSetTimeOffset} />
         </View>
 
@@ -88,6 +93,9 @@ export function DebugBar() {
         <ToolButton label="+1d" onPress={() => stepOffset(24 * HOUR_MS)} />
         <ToolButton label="time 0" onPress={() => devSetTimeOffset(0)} />
         <ToolButton label="arrival +1" onPress={devForceArrival} />
+        <ToolButton label="force rare" onPress={devForceRare} />
+        <ToolButton label="reroll seed" onPress={devRerollSeed} />
+        <ToolButton label="jump biome" onPress={devJumpBiome} />
         <ToolButton
           label="fast"
           active={devFastLegs}

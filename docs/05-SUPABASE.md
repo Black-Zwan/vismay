@@ -1,5 +1,22 @@
 # 05 · Supabase (Traces)
 
+## Seeded-world cairn seam
+
+Work Order 5 defines the future shared-world bucket shape below. It is schema only: the client uses an offline no-op `CairnService` and makes no connection. `bucket_key` is resolved and stored at write time; it is never regenerated from a seed during a read.
+
+```sql
+create table cairns (
+  id uuid primary key,
+  bucket_key text not null,
+  kind text not null,
+  payload jsonb,
+  created_at timestamptz default now()
+);
+create index on cairns (bucket_key, created_at desc);
+```
+
+The older `traces` proposal below remains historical design context until the network pass reconciles the two. Do not connect either schema in the client yet.
+
 **Not built yet, and deliberately so.** The app must be complete and shippable without it. Build this only after the core loop stands alone.
 
 ## What it's for
