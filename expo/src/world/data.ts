@@ -34,7 +34,7 @@ function todoAdjectives(biome: BiomeId): string[] {
 export const BIOMES: Record<BiomeId, BiomeDefinition> = {
   pinelands: {
     id: 'pinelands',
-    props: ['pine', 'stone', 'post', 'shrine'],
+    props: ['pine', 'stone', 'wagon', 'shrine'],
     adjectives: todoAdjectives('pinelands'),
     ground: ['#171d27', '#2e3840', '#59605d'],
     path: ['#292a33', '#4b4950', '#77706d'],
@@ -42,7 +42,7 @@ export const BIOMES: Record<BiomeId, BiomeDefinition> = {
   },
   river_vale: {
     id: 'river_vale',
-    props: ['willow', 'stone', 'shrine', 'lantern'],
+    props: ['willow', 'stone', 'wagon', 'lantern'],
     adjectives: todoAdjectives('river_vale'),
     ground: ['#13232b', '#29444c', '#527076'],
     path: ['#27343d', '#52626a', '#7b8587'],
@@ -50,7 +50,7 @@ export const BIOMES: Record<BiomeId, BiomeDefinition> = {
   },
   ashen_waste: {
     id: 'ashen_waste',
-    props: ['deadtree', 'boulder', 'post', 'bone'],
+    props: ['palm', 'boulder', 'post', 'bone'],
     adjectives: todoAdjectives('ashen_waste'),
     ground: ['#24191c', '#493335', '#75524b'],
     path: ['#33282a', '#604b49', '#8d7068'],
