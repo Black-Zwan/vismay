@@ -49,6 +49,12 @@ export function DebugBar() {
   const devGrantAspect = useStore((state) => state.devGrantAspect);
   const devCycleSign = useStore((state) => state.devCycleSign);
   const devFireArrivalNotification = useStore((state) => state.devFireArrivalNotification);
+  const traceNetworkEnabled = useStore((state) => state.traceNetworkEnabled);
+  const traceDensity = useStore((state) => state.traceDensity);
+  const devSpawnCairn = useStore((state) => state.devSpawnCairn);
+  const devToggleTraceNetwork = useStore((state) => state.devToggleTraceNetwork);
+  const devCycleTraceDensity = useStore((state) => state.devCycleTraceDensity);
+  const devGrantCurio = useStore((state) => state.devGrantCurio);
   const resetAll = useStore((state) => state.resetAll);
   const [forcedDaypart, setForcedDaypart] = useState<Daypart | null>(
     DEV_DAYPART_OVERRIDE.current,
@@ -117,6 +123,17 @@ export function DebugBar() {
           onPress={devCycleSign}
         />
         <ToolButton label="fire arrival notification" onPress={devFireArrivalNotification} />
+        <ToolButton label="spawn cairn real" onPress={() => devSpawnCairn('real')} />
+        <ToolButton label="spawn cairn old" onPress={() => devSpawnCairn('procedural')} />
+        <ToolButton
+          label={`network ${traceNetworkEnabled ? 'on' : 'off'}`}
+          active={!traceNetworkEnabled}
+          onPress={devToggleTraceNetwork}
+        />
+        <ToolButton label={`trace ${traceDensity}`} onPress={devCycleTraceDensity} />
+        <ToolButton label="curio common" onPress={() => devGrantCurio('common')} />
+        <ToolButton label="curio uncommon" onPress={() => devGrantCurio('uncommon')} />
+        <ToolButton label="curio rare" onPress={() => devGrantCurio('rare')} />
         <ToolButton
           label="fast"
           active={devFastLegs}

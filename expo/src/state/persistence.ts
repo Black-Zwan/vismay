@@ -18,7 +18,7 @@ import {
 import { ARCHETYPES, BIOME_IDS } from '../world/data';
 
 /** Current schema version. Bump when AppState shape changes. */
-export const CURRENT_SCHEMA_VERSION = 4;
+export const CURRENT_SCHEMA_VERSION = 5;
 
 function storageKey(version: number): string {
   return `vismay_state_v${version}`;
@@ -192,6 +192,17 @@ function migrateEnvelope(envelope: PersistedEnvelope): PersistedEnvelope {
         schemaVersion: 4,
       },
       schemaVersion: 4,
+    };
+  }
+  if (current.schemaVersion < 5) {
+    current = {
+      ...current,
+      state: {
+        ...current.state,
+        pendingCurioIds: [],
+        schemaVersion: 5,
+      },
+      schemaVersion: 5,
     };
   }
   current = {

@@ -24,6 +24,8 @@ export function WorldView({
   characterId,
   accentHex,
   tintHex,
+  cairns,
+  onCairnPress,
 }: WorldViewProps) {
   const rendererRef = useRef<WorldRenderer | null>(null);
   const inputsRef = useRef({ daypart, seed, biome, walkProgress, accentHex, tintHex });
@@ -69,6 +71,8 @@ export function WorldView({
         accentHex={tintHex ?? accentHex}
         tintHex={tintHex}
         walking={walking}
+        cairns={cairns}
+        onCairnPress={onCairnPress}
       >
         <View style={styles.character}>
           <CharacterSprite

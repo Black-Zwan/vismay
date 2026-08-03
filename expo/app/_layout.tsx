@@ -9,6 +9,7 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect } from 'react';
+import { AppState as NativeAppState } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { getCard } from '@/src/content/cards';
@@ -68,6 +69,8 @@ export default function RootLayout() {
   const phase = useStore((s) => s.phase);
   const pullCardId = useStore((s) => s.pullDraft?.cardId);
   const chronicle = useStore((s) => s.chronicle);
+  const tick = useStore((s) => s.tick);
+  const loadRoadCairns = useStore((s) => s.loadRoadCairns);
 
   const latestEntry = chronicle[chronicle.length - 1];
   const revealedPullCardId = phase === 'reveal' || phase === 'reading' || phase === 'walk'
@@ -92,6 +95,15 @@ export default function RootLayout() {
       setImmediateNotificationSideEffect(null);
     };
   }, [hydrate]);
+
+  useEffect(() => {
+    const subscription = NativeAppState.addEventListener('change', (nextState) => {
+      if (nextState !== 'active') return;
+      tick();
+      void loadRoadCairns();
+    });
+    return () => subscription.remove();
+  }, [loadRoadCairns, tick]);
 
   useEffect(() => {
     if (hydrated && fontsLoaded) {

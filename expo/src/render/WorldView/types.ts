@@ -16,4 +16,6 @@ export interface WorldViewProps {
   characterId: string;
   accentHex: string;
   tintHex?: string;
+  cairns?: readonly { id: string; position: number }[];
+  onCairnPress?: (id: string) => void;
 }
