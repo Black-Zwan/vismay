@@ -22,18 +22,26 @@ import { LENSES, getLens } from '@/src/content/lenses';
 import { SIGNS, getSign } from '@/src/content/signs';
 import { getCurio } from '@/src/content/curios';
 import { Button } from '@/src/ui/Button';
-import { Panel } from '@/src/ui/Panel';
+import { CardBack, CardFace } from '@/src/ui/CardFace';
 import { Text } from '@/src/ui/Text';
-import { FadeGlow, Floaty, RiseIn } from '@/src/ui/motion';
+import { FadeGlow, Floaty, GlowPulse, ModalEnter, RiseIn, motion } from '@/src/ui/motion';
 import {
   CompactPanel,
   ContextAction,
+  ModalCard,
+  Ornament,
   RitualOverlay,
   WorldVignette,
 } from '@/src/ui/presentation';
+import {
+  hapticArrival,
+  hapticDraw,
+  hapticLensSelection,
+  hapticRevealSettled,
+} from '@/src/ui/ritualHaptics';
 import { useClock } from '@/src/ui/useClock';
 import { useReducedMotion } from '@/src/ui/useReducedMotion';
-import { colors, fonts, radius, spacing } from '@/src/ui/tokens';
+import { colors, spacing } from '@/src/ui/tokens';
 import { WorldView } from '@/src/render/WorldView';
 import {
   selectCharacterAccent,
@@ -71,6 +79,7 @@ export default function RoadScreen() {
   const curioNoticeId = useStore((state) => state.curioNoticeId);
   const dismissCurioNotice = useStore((state) => state.dismissCurioNotice);
   const [selectedCairnId, setSelectedCairnId] = useState<string | null>(null);
+  const previousPhase = useRef(phase);
   const place = useStore(selectCurrentPlace);
   const characterAccent = useStore(selectCharacterAccent);
   const now = useClock();
@@ -92,6 +101,22 @@ export default function RoadScreen() {
     const timer = setTimeout(closePull, reducedMotion ? 0 : DEPARTURE_MS);
     return () => clearTimeout(timer);
   }, [closePull, phase, reducedMotion]);
+
+  useEffect(() => {
+    if (phase === 'arrive' && previousPhase.current !== 'arrive' && !reducedMotion) {
+      void hapticArrival();
+    }
+    previousPhase.current = phase;
+  }, [phase, reducedMotion]);
+
+  const handleChooseLens = (lensId: string) => {
+    if (!reducedMotion) void hapticLensSelection();
+    chooseLens(lensId);
+  };
+  const handleDraw = () => {
+    if (!reducedMotion) void hapticDraw();
+    drawCard();
+  };
 
   const character = getCharacter(journey.characterId);
   const sign = getSign(journey.signId);
@@ -150,7 +175,13 @@ export default function RoadScreen() {
       </View>
 
       {(phase === 'traveling' || phase === 'arrive') ? (
-        <View style={[styles.statusArea, devMode && styles.statusAreaWithDebug]}>
+        <View
+          style={[
+            styles.statusArea,
+            phase === 'traveling' && styles.travelStatusArea,
+            devMode && phase === 'arrive' && styles.statusAreaWithDebug,
+          ]}
+        >
           <CompactPanel style={styles.statusPanel}>
             <Text variant="screenRubric" muted>
               {phase === 'arrive' ? 'At the waymark' : `${character?.name ?? 'The wanderer'} ${sign ? `${sign.glyph}\uFE0E` : ''}`}
@@ -162,10 +193,12 @@ export default function RoadScreen() {
             </Text>
 
             {phase === 'arrive' ? (
-              <Button label="Draw a card" onPress={beginPull} style={styles.statusAction} />
+              <GlowPulse accent={characterAccent} style={styles.statusAction}>
+                <Button label="Begin today's pull" onPress={beginPull} />
+              </GlowPulse>
             ) : (
-              <Text variant="caption" muted style={styles.statusAction}>
-                {`Next arrival in ${formatRemaining(journey.arrivalAt - now)}`}
+              <Text variant="caption" style={[styles.statusAction, { color: characterAccent }]}>
+                {`You reach ${place.name} in ${formatRemaining(journey.arrivalAt - now)}`}
               </Text>
             )}
           </CompactPanel>
@@ -185,10 +218,14 @@ export default function RoadScreen() {
       ) : null}
 
       {phase === 'question' ? (
-        <QuestionOverlay onChoose={chooseLens} />
+        <QuestionOverlay onChoose={handleChooseLens} />
       ) : null}
       {phase === 'draw' && pullDraft ? (
-        <DrawOverlay accent={characterAccent} onDraw={drawCard} />
+        <DrawOverlay
+          accent={characterAccent}
+          lensLabel={getLens(pullDraft.lensId)?.label ?? ''}
+          onDraw={handleDraw}
+        />
       ) : null}
       {phase === 'reveal' && card ? (
         <RevealOverlay card={card} onReveal={revealCard} />
@@ -234,13 +271,16 @@ function CairnPopover({
   if (!sign || !lens || !card) return null;
   return (
     <View style={styles.traceScrim}>
-      <Panel style={styles.tracePanel}>
-        <Text variant="label" muted>A cairn, recently stacked.</Text>
-        <Text variant="reading" style={styles.tracePassage}>
-          {formatTracePassage(cairn, now, sign.name, lens.label, card.name)}
-        </Text>
-        <Button label="Dismiss" onPress={onDismiss} style={styles.traceDismiss} />
-      </Panel>
+      <ModalEnter style={styles.modalWidth}>
+        <ModalCard style={styles.tracePanel}>
+          <Text variant="screenRubric" muted>A cairn, recently stacked.</Text>
+          <Ornament style={styles.modalOrnament} />
+          <Text variant="passage" style={styles.tracePassage}>
+            {formatTracePassage(cairn, now, sign.name, lens.label, card.name)}
+          </Text>
+          <Button label="Dismiss" variant="ghost" onPress={onDismiss} style={styles.traceDismiss} />
+        </ModalCard>
+      </ModalEnter>
     </View>
   );
 }
@@ -250,14 +290,14 @@ function CurioNotice({ curioId, onDismiss }: { curioId: string; onDismiss: () =>
   if (!curio) return null;
   return (
     <View style={styles.curioArea}>
-      <Panel style={styles.curioPanel}>
-        <Text variant="label" muted>Found on the road</Text>
-        <Text style={styles.curioName}>{curio.name}</Text>
-        <Text variant="caption" muted>{curio.description}</Text>
-        <Pressable accessibilityRole="button" onPress={onDismiss} style={styles.curioDismiss}>
-          <Text variant="caption" muted>Dismiss</Text>
-        </Pressable>
-      </Panel>
+      <ModalEnter style={styles.modalWidth}>
+        <ModalCard style={styles.curioPanel}>
+          <Text variant="screenRubric" muted>Found on the road</Text>
+          <Text variant="placeName" style={styles.curioName}>{curio.name}</Text>
+          <Text variant="passage" muted>{curio.description}</Text>
+          <ContextAction label="Dismiss" onPress={onDismiss} style={styles.curioDismiss} />
+        </ModalCard>
+      </ModalEnter>
     </View>
   );
 }
@@ -266,21 +306,26 @@ function QuestionOverlay({ onChoose }: { onChoose: (lensId: string) => void }) {
   return (
     <RitualOverlay>
       <RiseIn>
-        <Text muted style={styles.prompt}>What do you want to ask the card?</Text>
+        <Text variant="ritualTitle" style={styles.prompt}>What do you carry today?</Text>
+      </RiseIn>
+      <RiseIn delay={150}>
+        <Text variant="caption" muted style={styles.questionSupport}>
+          The card answers what you ask it.
+        </Text>
+        <Ornament style={styles.questionOrnament} />
       </RiseIn>
       <View style={styles.lensList}>
         {LENSES.map((lens, index) => (
-          <RiseIn key={lens.id} delay={index * 75}>
+          <RiseIn key={lens.id} delay={300 + index * 55}>
             <Pressable
               accessibilityRole="button"
               onPress={() => onChoose(lens.id)}
               style={({ pressed }) => [styles.lensButton, pressed && styles.pressed]}
             >
-              <Panel style={styles.lensPanel}>
-                <Text variant="display" style={styles.lensText}>
-                  {lens.glyph} {lens.label}
-                </Text>
-              </Panel>
+              <CompactPanel style={styles.lensPanel}>
+                <Text variant="buttonLabel" style={styles.lensText}>{lens.label}</Text>
+                <Text style={styles.lensGlyph}>{lens.glyph}</Text>
+              </CompactPanel>
             </Pressable>
           </RiseIn>
         ))}
@@ -289,11 +334,22 @@ function QuestionOverlay({ onChoose }: { onChoose: (lensId: string) => void }) {
   );
 }
 
-function DrawOverlay({ accent, onDraw }: { accent: string; onDraw: () => void }) {
+function DrawOverlay({
+  accent,
+  lensLabel,
+  onDraw,
+}: {
+  accent: string;
+  lensLabel: string;
+  onDraw: () => void;
+}) {
   return (
     <RitualOverlay>
       <RiseIn>
-        <Text muted style={styles.prompt}>Tap the deck.</Text>
+        <Text variant="screenRubric" muted style={styles.drawRubric}>
+          {`You ask about · ${lensLabel.toLowerCase()}`}
+        </Text>
+        <Text variant="ritualTitle" style={styles.drawTitle}>Draw your card</Text>
       </RiseIn>
       <RiseIn delay={150}>
         <Floaty>
@@ -301,17 +357,14 @@ function DrawOverlay({ accent, onDraw }: { accent: string; onDraw: () => void })
             accessibilityRole="button"
             accessibilityLabel="Draw from the deck"
             onPress={onDraw}
-            style={({ pressed }) => [
-              styles.deck,
-              { borderColor: accent },
-              pressed && styles.pressed,
-            ]}
+            style={({ pressed }) => [styles.cardPressTarget, pressed && styles.pressed]}
           >
-            <View style={[styles.deckInset, { borderColor: accent }]}>
-              <Text variant="numeral" style={{ color: accent }}>✦</Text>
-            </View>
+            <CardBack accent={accent} />
           </Pressable>
         </Floaty>
+      </RiseIn>
+      <RiseIn delay={300}>
+        <Text variant="screenRubric" muted style={styles.deckHint}>Tap the deck</Text>
       </RiseIn>
     </RitualOverlay>
   );
@@ -326,21 +379,42 @@ function RevealOverlay({
 }) {
   const reducedMotion = useReducedMotion();
   const flip = useRef(new Animated.Value(reducedMotion ? 1 : 0)).current;
+  const revealOpacity = useRef(new Animated.Value(reducedMotion ? 0 : 1)).current;
   const [ready, setReady] = useState(reducedMotion);
 
   useEffect(() => {
+    setReady(false);
     if (reducedMotion) {
       flip.setValue(1);
-      setReady(true);
-      return;
+      revealOpacity.setValue(0);
+      const crossfade = Animated.timing(revealOpacity, {
+        toValue: 1,
+        duration: 180,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      });
+      crossfade.start(({ finished }) => {
+        if (finished) setReady(true);
+      });
+      return () => crossfade.stop();
     }
-    Animated.timing(flip, {
+    flip.setValue(0);
+    revealOpacity.setValue(1);
+    const animation = Animated.timing(flip, {
       toValue: 1,
-      duration: 650,
-      easing: Easing.inOut(Easing.ease),
+      delay: motion.revealDelay,
+      duration: motion.revealFlip,
+      easing: Easing.bezier(0.4, 0, 0.2, 1),
       useNativeDriver: true,
-    }).start(({ finished }) => setReady(finished));
-  }, [flip, reducedMotion]);
+    });
+    animation.start(({ finished }) => {
+      if (finished) {
+        setReady(true);
+        void hapticRevealSettled();
+      }
+    });
+    return () => animation.stop();
+  }, [flip, reducedMotion, revealOpacity]);
 
   const backRotation = flip.interpolate({
     inputRange: [0, 1],
@@ -354,9 +428,6 @@ function RevealOverlay({
   return (
     <RitualOverlay>
       <RiseIn>
-        <Text muted style={styles.prompt}>Tap the card.</Text>
-      </RiseIn>
-      <RiseIn delay={150}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`${card.name}. Read the card.`}
@@ -365,18 +436,29 @@ function RevealOverlay({
           style={styles.flipFrame}
         >
           <FadeGlow accent={card.accentHex} />
-          <Animated.View style={[styles.flipSide, { transform: [{ rotateY: backRotation }] }]}>
-            <View style={[styles.deck, { borderColor: card.accentHex }]}>
-              <View style={[styles.deckInset, { borderColor: card.accentHex }]}>
-                <Text variant="numeral" style={{ color: card.accentHex }}>✦</Text>
-              </View>
-            </View>
+          <Animated.View
+            style={[
+              styles.flipSide,
+              { opacity: revealOpacity, transform: [{ perspective: 900 }, { rotateY: backRotation }] },
+            ]}
+          >
+            <CardBack accent={card.accentHex} />
           </Animated.View>
-          <Animated.View style={[styles.flipSide, { transform: [{ rotateY: faceRotation }] }]}>
+          <Animated.View
+            style={[
+              styles.flipSide,
+              { opacity: revealOpacity, transform: [{ perspective: 900 }, { rotateY: faceRotation }] },
+            ]}
+          >
             <CardFace card={card} />
           </Animated.View>
         </Pressable>
       </RiseIn>
+      {ready ? (
+        <RiseIn>
+          <Text variant="screenRubric" muted style={styles.revealHint}>Tap the card</Text>
+        </RiseIn>
+      ) : null}
     </RitualOverlay>
   );
 }
@@ -397,7 +479,7 @@ function ReadingOverlay({
   onOnward: () => void;
 }) {
   return (
-    <View style={styles.scrim}>
+    <RitualOverlay>
       <ScrollView
         style={styles.readingScroll}
         contentContainerStyle={styles.readingContent}
@@ -405,22 +487,28 @@ function ReadingOverlay({
       >
         <RiseIn>
           <View style={styles.readingCard}>
-            <CardFace card={card} compact />
+            <CardFace card={card} />
           </View>
         </RiseIn>
         <RiseIn delay={150} style={styles.readingWidth}>
-          <Panel style={styles.readingPanel}>
-            <Text variant="label" muted>{lensLabel}</Text>
-            <Text style={styles.readingOpener}>{openerText}</Text>
-            <Text variant="reading" style={styles.readingAnswer}>{answerText}</Text>
-            {departText ? (
-              <Text variant="reading" muted style={styles.departText}>{departText}</Text>
-            ) : null}
-            <Button label="Onward" onPress={onOnward} style={styles.onward} />
-          </Panel>
+          <CompactPanel style={[styles.readingPanel, { borderColor: `${card.accentHex}66` }]}>
+            <Text variant="screenRubric" style={{ color: card.accentHex }}>
+              {`On the matter of ${lensLabel.toLowerCase()}`}
+            </Text>
+            {openerText ? <Text style={styles.readingOpener}>{openerText}</Text> : null}
+            <Text variant="passage" style={styles.readingAnswer}>{answerText}</Text>
+          </CompactPanel>
+        </RiseIn>
+        {departText ? (
+          <RiseIn delay={300} style={styles.readingWidth}>
+            <Text variant="reading" muted style={styles.departText}>{departText}</Text>
+          </RiseIn>
+        ) : null}
+        <RiseIn delay={300} style={styles.readingWidth}>
+          <Button label="Walk on →" onPress={onOnward} style={styles.onward} />
         </RiseIn>
       </ScrollView>
-    </View>
+    </RitualOverlay>
   );
 }
 
@@ -442,52 +530,35 @@ function SkyOverlay({
   onSetOut: () => void;
 }) {
   return (
-    <View style={styles.scrim}>
-      <RiseIn style={styles.skyWidth}>
-        <Panel style={styles.skyPanel}>
-          <Text variant="label" muted>{`The Sky · ${signGlyph}\uFE0E ${signName}`}</Text>
-          {departText ? (
-            <Text variant="reading" muted style={styles.skyDeparture}>{departText}</Text>
-          ) : null}
-          {horoscopeText ? (
-            <Text variant="reading" style={styles.horoscope}>{horoscopeText}</Text>
-          ) : null}
-          <View style={styles.watchBlock}>
-            <Text variant="label" muted>On the Road Ahead</Text>
-            {watchForSignName ? (
-              <Text style={styles.watchSign}>
-                {`${watchForSignGlyph ?? ''}\uFE0E ${watchForSignName}`}
-              </Text>
+    <RitualOverlay>
+      <ScrollView
+        style={styles.skyScroll}
+        contentContainerStyle={styles.skyContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <RiseIn style={styles.skyWidth}>
+          <CompactPanel style={styles.skyPanel}>
+            <Text variant="screenRubric" muted>{`The Sky · ${signGlyph}\uFE0E ${signName}`}</Text>
+            <Ornament style={styles.skyOrnament} />
+            {departText ? (
+              <Text variant="reading" muted style={styles.skyDeparture}>{departText}</Text>
             ) : null}
-          </View>
-          <Button label="Set out" onPress={onSetOut} style={styles.onward} />
-        </Panel>
-      </RiseIn>
-    </View>
-  );
-}
-
-function CardFace({
-  card,
-  compact = false,
-}: {
-  card: NonNullable<ReturnType<typeof getCard>>;
-  compact?: boolean;
-}) {
-  return (
-    <View
-      style={[
-        styles.cardFace,
-        compact && styles.cardFaceCompact,
-        { borderColor: card.accentHex },
-      ]}
-    >
-      <Text variant="numeral" style={[compact && styles.compactNumeral, { color: card.accentHex }]}>
-        {card.numeral}
-      </Text>
-      <Text variant={compact ? 'title' : 'display'} style={styles.cardName}>{card.name}</Text>
-      <Text variant="caption" style={{ color: card.accentHex }}>✦ ✦ ✦</Text>
-    </View>
+            {horoscopeText ? (
+              <Text variant="passage" style={styles.horoscope}>{horoscopeText}</Text>
+            ) : null}
+            <View style={styles.watchBlock}>
+              <Text variant="screenRubric" muted>On the Road Ahead</Text>
+              {watchForSignName ? (
+                <Text variant="placeName" style={styles.watchSign}>
+                  {`${watchForSignGlyph ?? ''}\uFE0E ${watchForSignName}`}
+                </Text>
+              ) : null}
+            </View>
+            <Button label="Set out" onPress={onSetOut} style={styles.onward} />
+          </CompactPanel>
+        </RiseIn>
+      </ScrollView>
+    </RitualOverlay>
   );
 }
 
@@ -569,134 +640,141 @@ const styles = StyleSheet.create({
   statusAreaWithDebug: {
     bottom: 58,
   },
+  travelStatusArea: {
+    top: 72,
+    bottom: 'auto',
+    alignItems: 'center',
+    pointerEvents: 'box-none',
+  },
   statusLine: {
     marginTop: spacing.xs,
   },
   statusAction: {
     marginTop: spacing.md,
   },
-  scrim: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 15,
-    paddingHorizontal: 28,
-    paddingTop: 76,
-    paddingBottom: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(8, 6, 14, 0.72)',
-  },
   prompt: {
-    fontFamily: fonts.italic,
-    letterSpacing: 1,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.sm,
     textAlign: 'center',
   },
+  questionSupport: {
+    textAlign: 'center',
+  },
+  questionOrnament: {
+    marginTop: spacing.xs,
+    marginBottom: spacing.md,
+  },
   lensList: {
-    alignSelf: 'stretch',
-    gap: spacing.sm,
+    width: '100%',
+    maxWidth: 280,
+    gap: 10,
   },
   lensButton: {
     alignSelf: 'stretch',
   },
   lensPanel: {
     minHeight: 54,
-    justifyContent: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     backgroundColor: 'rgba(17, 14, 28, 0.78)',
   },
   lensText: {
     fontSize: 14,
     letterSpacing: 2.5,
     lineHeight: 22,
-    textAlign: 'center',
-    textTransform: 'uppercase',
+    flex: 1,
+  },
+  lensGlyph: {
+    fontSize: 15,
+    color: colors.textMuted,
   },
   pressed: {
     opacity: 0.65,
   },
-  deck: {
-    width: 154,
-    height: 220,
-    padding: spacing.sm,
-    borderRadius: radius.lg,
-    borderWidth: 2,
-    backgroundColor: 'rgba(17, 14, 28, 0.94)',
+  drawRubric: {
+    marginBottom: spacing.xs,
+    textAlign: 'center',
   },
-  deckInset: {
-    flex: 1,
+  drawTitle: {
+    marginBottom: spacing.lg,
+    textAlign: 'center',
+  },
+  cardPressTarget: {
+    minWidth: 172,
+    minHeight: 246,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
+  },
+  deckHint: {
+    marginTop: spacing.md,
+    textAlign: 'center',
   },
   flipFrame: {
-    width: 200,
-    height: 280,
+    width: 148,
+    height: 226,
   },
   flipSide: {
     ...StyleSheet.absoluteFillObject,
     backfaceVisibility: 'hidden',
   },
-  cardFace: {
-    flex: 1,
-    padding: spacing.md,
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderRadius: radius.lg,
-    borderWidth: 2,
-    backgroundColor: 'rgba(17, 14, 28, 0.96)',
-  },
-  cardFaceCompact: {
-    width: 112,
-    height: 156,
-    padding: spacing.sm,
-  },
-  cardName: {
-    fontSize: 16,
-    letterSpacing: 2,
+  revealHint: {
+    marginTop: 20,
     textAlign: 'center',
-    textTransform: 'uppercase',
-  },
-  compactNumeral: {
-    fontSize: 24,
-    lineHeight: 28,
   },
   readingScroll: {
     alignSelf: 'stretch',
   },
   readingContent: {
     flexGrow: 1,
-    paddingVertical: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xl,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.md,
+    gap: 14,
   },
   readingCard: {
-    width: 112,
-    height: 156,
+    width: 148,
+    height: 226,
   },
   readingWidth: {
-    alignSelf: 'stretch',
+    width: '100%',
+    maxWidth: 360,
   },
   readingPanel: {
     backgroundColor: 'rgba(17, 14, 28, 0.86)',
   },
   readingOpener: {
     marginTop: spacing.sm,
+    color: colors.textMuted,
   },
   readingAnswer: {
-    marginTop: spacing.md,
+    marginTop: spacing.sm,
   },
   departText: {
-    marginTop: spacing.md,
+    paddingHorizontal: spacing.sm,
+    textAlign: 'center',
   },
   onward: {
     marginTop: spacing.lg,
   },
   skyWidth: {
+    width: '100%',
+    maxWidth: 390,
+  },
+  skyScroll: {
     alignSelf: 'stretch',
+  },
+  skyContent: {
+    flexGrow: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.lg,
   },
   skyPanel: {
     backgroundColor: 'rgba(17, 14, 28, 0.9)',
+  },
+  skyOrnament: {
+    marginVertical: spacing.sm,
   },
   skyDeparture: {
     marginTop: spacing.md,
@@ -711,8 +789,7 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   watchSign: {
-    marginTop: spacing.xs,
-    fontSize: 20,
+    marginTop: spacing.sm,
   },
   traceScrim: {
     ...StyleSheet.absoluteFillObject,
@@ -723,9 +800,14 @@ const styles = StyleSheet.create({
     zIndex: 30,
   },
   tracePanel: {
-    backgroundColor: 'rgba(17, 14, 28, 0.94)',
-    maxWidth: 420,
+    backgroundColor: 'rgba(17, 14, 28, 0.96)',
+  },
+  modalWidth: {
     width: '100%',
+    maxWidth: 420,
+  },
+  modalOrnament: {
+    marginTop: spacing.sm,
   },
   tracePassage: {
     marginTop: spacing.md,
@@ -743,8 +825,6 @@ const styles = StyleSheet.create({
   },
   curioPanel: {
     backgroundColor: 'rgba(17, 14, 28, 0.9)',
-    maxWidth: 420,
-    width: '100%',
   },
   curioName: {
     marginTop: spacing.xs,
