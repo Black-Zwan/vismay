@@ -23,6 +23,7 @@ export function WorldView({
   archetypeId,
   walkProgress,
   walking: walkingOverride,
+  reducedMotion = false,
   characterId,
   accentHex,
   tintHex,
@@ -81,6 +82,7 @@ export function WorldView({
         accentHex={tintHex ?? accentHex}
         tintHex={tintHex}
         walking={walking}
+        reducedMotion={reducedMotion}
         cairns={cairns}
         onCairnPress={onCairnPress}
         sceneProgress={sceneProgress}
@@ -91,6 +93,7 @@ export function WorldView({
             characterId={characterId}
             accentHex={tintHex ?? accentHex}
             walking={walking}
+            reducedMotion={reducedMotion}
           />
         </View>
       </PropLayers>

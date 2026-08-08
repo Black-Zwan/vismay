@@ -36,7 +36,7 @@ export default function SignScreen() {
               ]}
             >
               <Text style={{ fontSize: 24 }}>{`${s.glyph}\uFE0E`}</Text>
-              <Text>{s.name}</Text>
+              <Text style={styles.signName}>{s.name}</Text>
               <Text variant="caption" muted>{s.dates}</Text>
               <Text variant="caption" muted>{s.element}</Text>
             </Pressable>
@@ -62,7 +62,8 @@ export default function SignScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, padding: spacing.md, backgroundColor: colors.background },
-  sub: { marginBottom: spacing.md },
+  sub: { letterSpacing: 1, marginBottom: spacing.md, textAlign: 'center' },
+  signName: { fontSize: 13, letterSpacing: 1.5, textTransform: 'uppercase' },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',

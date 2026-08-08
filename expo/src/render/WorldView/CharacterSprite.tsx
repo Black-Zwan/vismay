@@ -52,6 +52,7 @@ type CharacterSpriteProps = {
   characterId: string;
   accentHex: string;
   walking: boolean;
+  reducedMotion?: boolean;
   scale?: number;
 };
 
@@ -59,6 +60,7 @@ type CharacterPreviewProps = {
   characterId: string;
   accentHex: string;
   fallback: React.ReactNode;
+  reducedMotion?: boolean;
 };
 
 type AccentTransition = {
@@ -128,11 +130,13 @@ export function CharacterSprite({
   characterId,
   accentHex,
   walking,
+  reducedMotion = false,
   scale = STAGE_SCALE,
 }: CharacterSpriteProps) {
   const sheet = SHEETS_BY_CHARACTER[characterId];
   const frameOffset = useRef(new Animated.Value(0)).current;
   const bob = useRef(new Animated.Value(0)).current;
+  const tilt = useRef(new Animated.Value(0)).current;
   const fade = useRef(new Animated.Value(1)).current;
   const [transition, setTransition] = useState<AccentTransition>(() => {
     const ramp = makeRamp(accentHex);
@@ -146,6 +150,11 @@ export function CharacterSprite({
 
     const from = currentRampRef.current;
     currentRampRef.current = next;
+    if (reducedMotion) {
+      setTransition({ from: next, to: next });
+      fade.setValue(1);
+      return;
+    }
     setTransition({ from, to: next });
     fade.setValue(0);
     Animated.timing(fade, {
@@ -154,10 +163,10 @@ export function CharacterSprite({
       easing: Easing.inOut(Easing.ease),
       useNativeDriver: USE_NATIVE_DRIVER,
     }).start();
-  }, [accentHex, fade]);
+  }, [accentHex, fade, reducedMotion]);
 
   useEffect(() => {
-    if (!sheet || !walking) {
+    if (!sheet || !walking || reducedMotion) {
       frameOffset.setValue(0);
       return;
     }
@@ -170,30 +179,59 @@ export function CharacterSprite({
     }, 1_000 / CHARACTER_WALK_FPS);
 
     return () => clearInterval(timer);
-  }, [frameOffset, scale, sheet, walking]);
+  }, [frameOffset, reducedMotion, scale, sheet, walking]);
 
   useEffect(() => {
-    const distance = walking ? -2 : -1;
+    bob.stopAnimation();
+    tilt.stopAnimation();
+
+    if (reducedMotion) {
+      bob.setValue(0);
+      tilt.setValue(0);
+      return;
+    }
+
+    const distance = walking ? -3 : -4;
     const duration = walking ? 180 : 1_800;
+    const startTilt = walking ? -0.6 : 0;
+    const peakTilt = walking ? 0.8 : 0;
+    bob.setValue(0);
+    tilt.setValue(startTilt);
     const motion = Animated.loop(
       Animated.sequence([
-        Animated.timing(bob, {
-          toValue: distance,
-          duration,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: USE_NATIVE_DRIVER,
-        }),
-        Animated.timing(bob, {
-          toValue: 0,
-          duration,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: USE_NATIVE_DRIVER,
-        }),
+        Animated.parallel([
+          Animated.timing(bob, {
+            toValue: distance,
+            duration,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: USE_NATIVE_DRIVER,
+          }),
+          Animated.timing(tilt, {
+            toValue: peakTilt,
+            duration,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: USE_NATIVE_DRIVER,
+          }),
+        ]),
+        Animated.parallel([
+          Animated.timing(bob, {
+            toValue: 0,
+            duration,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: USE_NATIVE_DRIVER,
+          }),
+          Animated.timing(tilt, {
+            toValue: startTilt,
+            duration,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: USE_NATIVE_DRIVER,
+          }),
+        ]),
       ]),
     );
     motion.start();
     return () => motion.stop();
-  }, [bob, walking]);
+  }, [bob, reducedMotion, tilt, walking]);
 
   if (!sheet) return null;
 
@@ -209,7 +247,18 @@ export function CharacterSprite({
   };
 
   return (
-    <Animated.View style={[styles.root, rootStyle, { transform: [{ translateY: bob }] }]}>
+    <Animated.View
+      style={[
+        styles.root,
+        rootStyle,
+        {
+          transform: [
+            { translateY: bob },
+            { rotate: tilt.interpolate({ inputRange: [-1, 1], outputRange: ['-1deg', '1deg'] }) },
+          ],
+        },
+      ]}
+    >
       <View
         style={[
           styles.shadow,
@@ -257,6 +306,7 @@ export function CharacterPreview({
   characterId,
   accentHex,
   fallback,
+  reducedMotion = false,
 }: CharacterPreviewProps) {
   if (!SHEETS_BY_CHARACTER[characterId]) return <>{fallback}</>;
 
@@ -265,6 +315,7 @@ export function CharacterPreview({
       characterId={characterId}
       accentHex={accentHex}
       walking={false}
+      reducedMotion={reducedMotion}
       scale={0.5}
     />
   );
