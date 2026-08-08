@@ -82,6 +82,54 @@ export const typography = {
     lineHeight: 40,
     letterSpacing: 3,
   },
+  ritualTitle: {
+    fontFamily: fonts.italic,
+    fontSize: 19,
+    lineHeight: 27,
+    letterSpacing: 0.8,
+  },
+  screenRubric: {
+    fontFamily: fonts.semibold,
+    fontSize: 11,
+    lineHeight: 16,
+    letterSpacing: 3,
+    textTransform: 'uppercase' as const,
+  },
+  placeName: {
+    fontFamily: fonts.semibold,
+    fontSize: 15,
+    lineHeight: 21,
+    letterSpacing: 1.75,
+    textTransform: 'uppercase' as const,
+  },
+  passage: {
+    fontFamily: fonts.regular,
+    fontSize: 17,
+    lineHeight: 29,
+  },
+  passageLead: {
+    fontFamily: fonts.regular,
+    fontSize: 19,
+    lineHeight: 31,
+  },
+  buttonLabel: {
+    fontFamily: fonts.semibold,
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: 2.5,
+    textTransform: 'uppercase' as const,
+  },
+  ornament: {
+    fontFamily: fonts.regular,
+    fontSize: 11,
+    lineHeight: 16,
+    letterSpacing: 4,
+  },
+  developerReadout: {
+    fontFamily: 'monospace',
+    fontSize: 13,
+    lineHeight: 18,
+  },
 } satisfies Record<string, TextStyle>;
 
 export const radius = {
