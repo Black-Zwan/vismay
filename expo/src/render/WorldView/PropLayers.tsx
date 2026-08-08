@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Platform, Pressable, StyleSheet, View } from 'react-native';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, Ellipse, Line, Path, Polygon, Rect } from 'react-native-svg';
 
 import { DAYPARTS } from '@/src/content/dayparts';
 import { hx, mix, sink, type Rgb } from '@/src/core/color';
@@ -601,39 +601,29 @@ function PropArt({
     );
   }
 
-  if (kind === 'stone' || kind === 'boulder' || kind === 'bone') {
-    return (
-      <View
-        style={{
-          width: height * 0.55,
-          height: height * 0.38,
-          borderRadius: height * 0.2,
-          backgroundColor: fill,
-        }}
-      />
-    );
+  if (kind === 'stone' || kind === 'boulder') {
+    return <Stone height={height} fill={fill} highlight={highlight} broad={kind === 'boulder'} />;
   }
+
+  if (kind === 'bone') return <Bone height={height} fill={fill} highlight={highlight} />;
 
   if (kind === 'shrine') {
     return (
       <Svg width={height * 0.72} height={height} viewBox="0 0 40 56">
-        <Path d="M4 14 Q20 2 36 14 L33 18 Q20 8 7 18 Z" fill={fill} />
-        <Rect x="9" y="16" width="4" height="36" fill={fill} />
-        <Rect x="27" y="16" width="4" height="36" fill={fill} />
-        <Circle cx="20" cy="30" r="3" fill={accent} />
+        <Path d="M3 14 Q20 1 37 14 L33 19 Q20 10 7 19 Z" fill={fill} />
+        <Path d="M9 17 L14 17 L13 53 L8 56 Z M27 17 L32 17 L33 56 L27 53 Z" fill={fill} />
+        <Path d="M13 22 Q20 18 27 22 M12 49 Q20 45 28 49" fill="none" stroke={highlight} strokeWidth="1.4" opacity={0.55} />
+        <Circle cx="20" cy="31" r="6" fill={accent} opacity={0.1} />
+        <Circle cx="20" cy="31" r="2.4" fill={accent} />
+        <Path d="M18 31 L20 27 L22 31 L20 35 Z" fill={highlight} opacity={0.7} />
       </Svg>
     );
   }
 
-  if (kind === 'post' || kind === 'obelisk' || kind === 'spire') {
-    return (
-      <Svg width={height * 0.6} height={height} viewBox="0 0 30 60">
-        <Rect x="13" y="6" width="4" height="54" fill={fill} />
-        <Rect x="4" y="10" width="22" height="6" rx="2" fill={fill} />
-        <Circle cx="15" cy="4" r="2.5" fill={accent} />
-      </Svg>
-    );
-  }
+  if (kind === 'post') return <Waypost height={height} fill={fill} highlight={highlight} accent={accent} />;
+  if (kind === 'obelisk') return <Obelisk height={height} fill={fill} highlight={highlight} accent={accent} />;
+  if (kind === 'spire') return <Spire height={height} fill={fill} highlight={highlight} />;
+  if (kind === 'lantern') return <Lantern height={height} fill={fill} highlight={highlight} accent={accent} />;
 
   if (kind === 'shroom') {
     return (
@@ -647,12 +637,13 @@ function PropArt({
     );
   }
 
-  const tree = <Pine height={height} fill={fill} />;
-  if (kind === 'pine' || kind === 'willow' || kind === 'deadtree') return tree;
-
-  if (kind === 'palm') return tree;
+  const tree = <Pine height={height} fill={fill} highlight={highlight} />;
+  if (kind === 'pine') return tree;
+  if (kind === 'willow') return <Willow height={height} fill={fill} highlight={highlight} />;
+  if (kind === 'deadtree') return <DeadTree height={height} fill={fill} highlight={highlight} />;
+  if (kind === 'palm') return <Palm height={height} fill={fill} highlight={highlight} />;
   if (kind === 'wagon') {
-    return <View style={{ width: height * 0.9, height: height * 0.42, borderRadius: 2, backgroundColor: fill }} />;
+    return <Wagon height={height} fill={fill} highlight={highlight} accent={accent} />;
   }
 
   if (kind === 'driftwood') {
@@ -707,14 +698,130 @@ function PropArt({
   );
 }
 
-function Pine({ height, fill }: { height: number; fill: string }) {
+function Pine({ height, fill, highlight }: { height: number; fill: string; highlight: string }) {
   return (
     <Svg width={height * 0.62} height={height} viewBox="0 0 62 100">
-      <Path
-        d="M31 2 Q44 16 35 23 Q52 32 37 41 Q56 54 39 61 Q60 76 31 81 Q2 76 23 61 Q6 54 25 41 Q10 32 27 23 Q18 16 31 2 Z"
-        fill={fill}
-      />
-      <Path d="M29 80 L28 100 L34 100 L33 80 Z" fill={fill} opacity={0.65} />
+      <Path d="M29 62 Q31 78 27 100 L36 100 Q32 78 34 61 Z" fill={fill} opacity={0.82} />
+      <Path d="M31 1 Q38 12 34 19 Q45 21 53 31 Q44 31 36 35 Q51 39 59 51 Q47 49 38 55 Q55 60 61 72 Q48 69 38 76 Q51 77 57 84 Q43 81 32 89 Q23 80 5 83 Q12 74 24 69 Q13 68 1 72 Q10 59 25 54 Q17 51 6 54 Q13 41 27 35 Q21 32 11 34 Q18 22 28 19 Q24 12 31 1 Z" fill={fill} />
+      <Path d="M31 9 Q27 26 30 41 Q25 56 31 81" fill="none" stroke={highlight} strokeWidth="1.8" opacity={0.5} />
+      <Path d="M21 30 L31 25 L41 29 M12 50 L30 42 L50 48 M7 68 L31 58 L56 66 M12 79 L31 70 L51 78" fill="none" stroke={highlight} strokeWidth="1" opacity={0.28} />
+    </Svg>
+  );
+}
+
+function Willow({ height, fill, highlight }: { height: number; fill: string; highlight: string }) {
+  return (
+    <Svg width={height * 0.9} height={height} viewBox="0 0 90 100">
+      <Path d="M43 48 Q48 65 38 100 L54 100 Q48 72 53 48 Z" fill={fill} opacity={0.86} />
+      <Path d="M47 10 Q24 7 17 27 Q6 28 4 48 Q17 39 28 44 Q14 52 16 76 Q29 63 38 65 Q42 84 47 91 Q50 73 54 64 Q66 64 77 77 Q79 54 65 45 Q77 41 88 49 Q85 29 72 27 Q66 8 47 10 Z" fill={fill} />
+      <Path d="M25 25 Q21 48 20 72 M37 17 Q34 47 34 78 M53 15 Q57 43 54 73 M67 25 Q72 45 74 69" fill="none" stroke={highlight} strokeWidth="2.2" opacity={0.44} />
+      <Path d="M47 13 Q42 43 47 88" fill="none" stroke={highlight} strokeWidth="1.4" opacity={0.35} />
+    </Svg>
+  );
+}
+
+function DeadTree({ height, fill, highlight }: { height: number; fill: string; highlight: string }) {
+  return (
+    <Svg width={height * 0.78} height={height} viewBox="0 0 78 100">
+      <Path d="M34 100 Q40 71 35 54 Q31 39 34 5 L42 4 Q40 27 44 38 Q49 30 59 17 L64 20 Q52 36 46 49 Q55 49 70 40 L73 45 Q58 57 47 60 Q50 76 52 100 Z" fill={fill} />
+      <Path d="M36 48 Q25 37 11 29 L15 24 Q29 31 36 36 M35 59 Q24 59 7 50 L5 56 Q23 67 38 68 M44 39 Q47 23 45 10" fill="none" stroke={fill} strokeWidth="6" strokeLinecap="round" />
+      <Path d="M39 12 Q37 40 43 58 Q46 72 45 92" fill="none" stroke={highlight} strokeWidth="1.5" opacity={0.5} />
+      <Circle cx="63" cy="18" r="2" fill={highlight} opacity={0.5} />
+    </Svg>
+  );
+}
+
+function Palm({ height, fill, highlight }: { height: number; fill: string; highlight: string }) {
+  return (
+    <Svg width={height * 0.92} height={height} viewBox="0 0 92 100">
+      <Path d="M45 100 Q38 68 51 31 L59 32 Q46 70 54 100 Z" fill={fill} />
+      <Path d="M54 33 Q37 13 7 16 Q29 22 48 39 Z M55 32 Q52 9 35 1 Q43 17 50 39 Z M57 32 Q69 8 88 10 Q70 20 60 39 Z M57 34 Q80 25 92 39 Q73 35 58 42 Z M53 36 Q28 29 13 43 Q35 37 53 44 Z" fill={fill} />
+      <Path d="M56 35 Q46 66 50 94 M53 31 Q34 18 13 18 M59 30 Q72 17 86 13" fill="none" stroke={highlight} strokeWidth="1.4" opacity={0.45} />
+    </Svg>
+  );
+}
+
+function Stone({ height, fill, highlight, broad }: { height: number; fill: string; highlight: string; broad: boolean }) {
+  const width = broad ? height * 0.92 : height * 0.66;
+  return (
+    <Svg width={width} height={height * 0.55} viewBox="0 0 90 55">
+      <Path d="M3 48 L10 23 L31 5 L66 9 L87 32 L81 51 Z" fill={fill} />
+      <Polygon points="10,23 31,5 39,31 3,48" fill={highlight} opacity={0.28} />
+      <Polygon points="31,5 66,9 56,31 39,31" fill={highlight} opacity={0.14} />
+      <Path d="M39 31 L56 31 L81 51 M39 31 L31 5" fill="none" stroke={highlight} strokeWidth="1.2" opacity={0.38} />
+      <Ellipse cx="45" cy="51" rx="40" ry="3" fill={fill} opacity={0.45} />
+    </Svg>
+  );
+}
+
+function Bone({ height, fill, highlight }: { height: number; fill: string; highlight: string }) {
+  return (
+    <Svg width={height * 1.1} height={height * 0.5} viewBox="0 0 80 38">
+      <Path d="M13 27 Q5 31 3 24 Q1 18 8 16 Q3 9 10 6 Q17 4 20 12 L61 23 Q66 15 73 19 Q80 23 75 29 Q80 34 73 37 Q66 40 62 32 L18 22 Q19 27 13 27 Z" fill={fill} />
+      <Path d="M20 14 L60 25" stroke={highlight} strokeWidth="2" opacity={0.45} />
+    </Svg>
+  );
+}
+
+function Waypost({ height, fill, highlight, accent }: { height: number; fill: string; highlight: string; accent: string }) {
+  return (
+    <Svg width={height * 0.82} height={height} viewBox="0 0 50 80">
+      <Path d="M22 11 L28 10 L30 80 L20 80 Z" fill={fill} />
+      <Path d="M5 16 L41 12 L48 23 L11 27 Z" fill={fill} />
+      <Path d="M8 18 L39 15 M24 14 L25 76" stroke={highlight} strokeWidth="1.5" opacity={0.5} />
+      <Path d="M12 31 L40 34 L34 44 L8 41 Z" fill={fill} opacity={0.92} />
+      <Circle cx="25" cy="8" r="4" fill={accent} opacity={0.7} />
+      <Circle cx="25" cy="8" r="8" fill={accent} opacity={0.08} />
+    </Svg>
+  );
+}
+
+function Lantern({ height, fill, highlight, accent }: { height: number; fill: string; highlight: string; accent: string }) {
+  return (
+    <Svg width={height * 0.62} height={height} viewBox="0 0 50 90">
+      <Path d="M16 90 Q22 51 18 14 L25 12 Q28 49 25 90 Z" fill={fill} />
+      <Path d="M20 18 Q35 7 43 18 L40 22 Q34 14 23 24" fill="none" stroke={fill} strokeWidth="5" strokeLinecap="round" />
+      <Line x1="40" y1="19" x2="40" y2="30" stroke={highlight} strokeWidth="1.5" />
+      <Path d="M34 30 L46 30 L48 48 L32 48 Z" fill={fill} />
+      <Rect x="35" y="33" width="10" height="11" rx="2" fill={accent} opacity={0.82} />
+      <Circle cx="40" cy="39" r="11" fill={accent} opacity={0.1} />
+      <Path d="M20 57 Q11 64 7 73" fill="none" stroke={highlight} strokeWidth="1.2" opacity={0.45} />
+    </Svg>
+  );
+}
+
+function Obelisk({ height, fill, highlight, accent }: { height: number; fill: string; highlight: string; accent: string }) {
+  return (
+    <Svg width={height * 0.52} height={height} viewBox="0 0 42 90">
+      <Polygon points="21,1 34,17 31,82 10,82 8,17" fill={fill} />
+      <Polygon points="21,1 21,82 10,82 8,17" fill={highlight} opacity={0.2} />
+      <Path d="M13 29 L28 29 M12 61 L30 61 M21 13 L21 75" stroke={highlight} strokeWidth="1" opacity={0.34} />
+      <Path d="M17 40 L21 34 L25 40 L21 48 Z" fill={accent} opacity={0.72} />
+      <Ellipse cx="21" cy="84" rx="18" ry="4" fill={fill} opacity={0.5} />
+    </Svg>
+  );
+}
+
+function Spire({ height, fill, highlight }: { height: number; fill: string; highlight: string }) {
+  return (
+    <Svg width={height * 0.7} height={height} viewBox="0 0 56 90">
+      <Path d="M4 87 L18 42 L29 2 L38 47 L53 87 Z" fill={fill} />
+      <Path d="M18 42 L29 2 L28 83 L4 87 Z" fill={highlight} opacity={0.22} />
+      <Path d="M14 58 L28 48 L39 64 M11 76 L29 69 L46 79" fill="none" stroke={highlight} strokeWidth="1.2" opacity={0.35} />
+    </Svg>
+  );
+}
+
+function Wagon({ height, fill, highlight, accent }: { height: number; fill: string; highlight: string; accent: string }) {
+  return (
+    <Svg width={height * 1.35} height={height * 0.72} viewBox="0 0 110 62">
+      <Path d="M14 14 L90 17 L98 43 L9 42 Z" fill={fill} />
+      <Path d="M17 18 L87 21 M22 27 L92 29 M13 37 L96 38" stroke={highlight} strokeWidth="1.3" opacity={0.42} />
+      <Circle cx="31" cy="47" r="13" fill={fill} stroke={highlight} strokeWidth="2" />
+      <Circle cx="31" cy="47" r="3" fill={accent} opacity={0.7} />
+      <Path d="M31 35 L31 59 M19 47 L43 47 M22 38 L40 56 M40 38 L22 56" stroke={highlight} strokeWidth="1" opacity={0.5} />
+      <Path d="M93 39 L108 55 M13 41 L2 52" stroke={fill} strokeWidth="5" strokeLinecap="round" />
+      <Path d="M22 14 Q25 4 31 1 M50 16 Q53 4 59 5 M75 17 Q78 8 86 7" fill="none" stroke={highlight} strokeWidth="2" opacity={0.5} />
     </Svg>
   );
 }

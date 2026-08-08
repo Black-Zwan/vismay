@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
   character: {
     position: 'absolute',
     left: '22%',
-    bottom: '12.5%',
+    bottom: '25%',
   },
 });
 
