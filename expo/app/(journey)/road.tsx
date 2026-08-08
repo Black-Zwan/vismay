@@ -24,7 +24,8 @@ import { getCurio } from '@/src/content/curios';
 import { Button } from '@/src/ui/Button';
 import { CardBack, CardFace } from '@/src/ui/CardFace';
 import { Text } from '@/src/ui/Text';
-import { FadeGlow, Floaty, GlowPulse, ModalEnter, RiseIn, motion } from '@/src/ui/motion';
+import { Floaty, GlowPulse, ModalEnter, RiseIn, motion } from '@/src/ui/motion';
+import { CardRevealBloom, CardRevealSheen } from '@/src/ui/CardRevealBloom';
 import {
   CompactPanel,
   ContextAction,
@@ -433,7 +434,7 @@ function RevealOverlay({
           onPress={onReveal}
           style={styles.flipFrame}
         >
-          <FadeGlow accent={card.accentHex} />
+          <CardRevealBloom accent={card.accentHex} />
           <Animated.View
             style={[
               styles.flipSide,
@@ -449,6 +450,7 @@ function RevealOverlay({
             ]}
           >
             <CardFace card={card} />
+            <CardRevealSheen accent={card.accentHex} />
           </Animated.View>
         </Pressable>
       </RiseIn>

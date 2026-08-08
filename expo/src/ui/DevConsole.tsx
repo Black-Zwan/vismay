@@ -59,7 +59,9 @@ export function DevConsole({ bottomInset }: { bottomInset: number }) {
   }, []);
 
   const panResponder = useMemo(() => PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
+    // Let the nested Pressable own a tap. The pan responder only takes over
+    // once the pointer has actually moved far enough to be a drag.
+    onStartShouldSetPanResponder: () => false,
     onMoveShouldSetPanResponder: (_event, gesture) => Math.abs(gesture.dx) > 4 || Math.abs(gesture.dy) > 4,
     onPanResponderGrant: () => {
       dragged.current = false;
