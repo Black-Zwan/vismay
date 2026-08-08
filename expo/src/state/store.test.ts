@@ -59,10 +59,7 @@ describe('onboarding', () => {
 
 describe('scene inspector', () => {
   it('toggles a forced scene independently of the real destination', () => {
-    useStore.setState((state) => ({
-      onboarded: true,
-      settings: { ...state.settings, devMode: true },
-    }));
+    useStore.setState({ onboarded: true });
 
     useStore.getState().devToggleScene('shore');
     expect(useStore.getState().devSceneId).toBe('shore');
@@ -76,10 +73,7 @@ describe('scene inspector', () => {
   });
 
   it('jumps to a complete rare destination without requiring prior rare state', () => {
-    useStore.setState((state) => ({
-      onboarded: true,
-      settings: { ...state.settings, devMode: true },
-    }));
+    useStore.setState({ onboarded: true });
 
     useStore.getState().devForceRareLocation('vansh_sea');
     const state = useStore.getState();

@@ -7,7 +7,7 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAccentColor } from '@/src/ui/AccentColor';
-import { DebugBar } from '@/src/ui/DebugBar';
+import { DevConsole } from '@/src/ui/DevConsole';
 import { NavigationTitle } from '@/src/ui/NavigationTitle';
 import { journeyChromeMode } from '@/src/ui/journeyChrome';
 import { colors, fonts } from '@/src/ui/tokens';
@@ -58,19 +58,13 @@ export default function JourneyLayout() {
         <Tabs.Screen name="mirror" options={{ title: 'Mirror' }} />
         <Tabs.Screen name="settings" options={{ title: 'Settings' }} />
       </Tabs>
-      <View style={[styles.debugBar, { bottom: chromeMode === 'travel' ? tabBarHeight : 0 }]}>
-        <DebugBar />
-      </View>
+      {__DEV__ ? (
+        <DevConsole bottomInset={chromeMode === 'travel' ? tabBarHeight : insets.bottom} />
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.background },
-  debugBar: {
-    position: 'absolute',
-    right: 0,
-    left: 0,
-    zIndex: 100,
-  },
 });

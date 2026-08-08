@@ -54,7 +54,6 @@ interface MirrorState {
 interface Settings {
   notifyArrival: boolean;
   notifyWeekly: boolean;
-  devMode: boolean;
 }
 
 interface AppState {

@@ -62,7 +62,6 @@ export default function RoadScreen() {
   const tick = useStore((state) => state.tick);
   const phase = useStore((state) => state.phase);
   const journey = useStore((state) => state.journey);
-  const devMode = useStore((state) => state.settings.devMode);
   const devSceneId = useStore((state) => state.devSceneId);
   const devApproachProgress = useStore((state) => state.devApproachProgress);
   const setRenderFps = useStore((state) => state.setRenderFps);
@@ -179,7 +178,6 @@ export default function RoadScreen() {
           style={[
             styles.statusArea,
             phase === 'traveling' && styles.travelStatusArea,
-            devMode && phase === 'arrive' && styles.statusAreaWithDebug,
           ]}
         >
           <CompactPanel style={styles.statusPanel}>
@@ -636,9 +634,6 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 440,
     backgroundColor: 'rgba(17, 14, 28, 0.76)',
-  },
-  statusAreaWithDebug: {
-    bottom: 58,
   },
   travelStatusArea: {
     top: 72,

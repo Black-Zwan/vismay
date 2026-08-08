@@ -31,7 +31,7 @@ expo/
       chronicle/index.tsx       passage list
       chronicle/[entryId].tsx   single passage
       mirror.tsx                aspects + satchel
-      settings.tsx              toggles + dev panel
+      settings.tsx              player-facing preferences only
   src/
     core/                       PURE. No React, no RN, no I/O.
       leg.ts                    walk-leg and arrival math
@@ -48,7 +48,7 @@ expo/
       WorldView/                the render seam
     services/                   platform edges
       notifications.ts
-      traces.ts                 stub, unimported
+      traces.ts                 enum-only trace client
       purchases.ts              stub, unimported
     ui/                         primitives + design tokens
   assets/
@@ -89,7 +89,7 @@ The project currently runs in Expo Go, which cannot load third-party native modu
 
 Every one of these is already isolated behind an interface, so each is a swap rather than a rewrite. That isolation is the point — preserve it.
 
-Reanimated and Gesture Handler are in Expo Go and are fine to use.
+React Native's core `Animated` is the project's animation foundation. Reanimated is not installed; do not add it or another native animation dependency without asking first. Gesture Handler may only be used through the version already supported by the current Expo Go runtime.
 
 ## Persistence
 

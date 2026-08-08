@@ -140,7 +140,7 @@ export interface StoreState extends AppState {
   // --- settings ---
   updateSettings: (patch: Partial<Settings>) => void;
 
-  // --- dev panel ---
+  // --- development console ---
   devForceArrival: () => void;
   devSetTimeOffset: (offsetMs: number) => void;
   devToggleFastLegs: (on: boolean) => void;
@@ -206,7 +206,6 @@ function defaultAppState(): AppState {
     settings: {
       notifyArrival: true,
       notifyWeekly: false,
-      devMode: false,
       arrivalPermissionAsked: false,
     },
     devOffsetMs: 0,
@@ -288,9 +287,7 @@ export const useStore = create<StoreState>((set, get) => ({
       set({ hydrated: true });
       return;
     }
-    const restoredOffset = envelope.state.settings.devMode
-      ? envelope.state.devOffsetMs
-      : 0;
+    const restoredOffset = 0;
     setDevOffset(restoredOffset);
     set({
       ...envelope.state,
@@ -657,9 +654,7 @@ export const useStore = create<StoreState>((set, get) => ({
         ? true
         : state.settings.arrivalPermissionAsked,
     };
-    const devOffsetMs = settings.devMode ? get().devOffsetMs : 0;
-    if (!settings.devMode) setDevOffset(0);
-    set({ settings, devOffsetMs });
+    set({ settings });
     if (shouldRequestArrivalPermission && permissionSideEffect) {
       void permissionSideEffect()
         .catch(() => false)
@@ -690,8 +685,6 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   devSetTimeOffset: (offsetMs) => {
-    const state = get();
-    if (!state.settings.devMode) return;
     const minOffset = -24 * 60 * 60 * 1000;
     const maxOffset = 48 * 60 * 60 * 1000;
     const boundedOffset = Math.max(minOffset, Math.min(maxOffset, offsetMs));
@@ -747,7 +740,6 @@ export const useStore = create<StoreState>((set, get) => ({
 
   devForceRareLocation: (rareId) => {
     const state = get();
-    if (!state.settings.devMode) return;
     const place = placeForRare(state.journey.seed, rareId);
     if (!place) return;
     const timestamp = now();
@@ -771,7 +763,6 @@ export const useStore = create<StoreState>((set, get) => ({
 
   devToggleScene: (sceneId) => {
     const state = get();
-    if (!state.settings.devMode) return;
     set({
       devSceneId: state.devSceneId === sceneId ? null : sceneId,
       devApproachProgress: 1,
@@ -779,8 +770,6 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   devSetSceneApproach: (progress) => {
-    const state = get();
-    if (!state.settings.devMode) return;
     set({ devApproachProgress: Math.max(0.55, Math.min(1, progress)) });
   },
 
@@ -826,7 +815,7 @@ export const useStore = create<StoreState>((set, get) => ({
 
   devSetWalkProgress: (progress) => {
     const state = get();
-    if (!state.settings.devMode || !state.onboarded) return;
+    if (!state.onboarded) return;
     const bounded = Math.max(0, Math.min(1, progress));
     const timestamp = now();
     const duration = state.journey.legDurationMs;
@@ -846,7 +835,6 @@ export const useStore = create<StoreState>((set, get) => ({
 
   devForcePlace: (biome, archetypeId) => {
     const state = get();
-    if (!state.settings.devMode) return;
     const place = placeForBucket(state.journey.seed, biome, archetypeId);
     if (!place) return;
     set({
@@ -862,7 +850,7 @@ export const useStore = create<StoreState>((set, get) => ({
 
   devGrantAspect: (aspect, points = 1) => {
     const state = get();
-    if (!state.settings.devMode || !ASPECT_IDS.includes(aspect)) return;
+    if (!ASPECT_IDS.includes(aspect)) return;
     const amount = Math.max(1, Math.floor(points));
     set({
       mirror: {
@@ -878,7 +866,6 @@ export const useStore = create<StoreState>((set, get) => ({
 
   devCycleSign: () => {
     const state = get();
-    if (!state.settings.devMode) return;
     const currentIndex = SIGNS.findIndex((sign) => sign.id === state.journey.signId);
     const signId = SIGNS[(currentIndex + 1 + SIGNS.length) % SIGNS.length].id;
     set({ journey: { ...state.journey, signId } });
@@ -887,7 +874,7 @@ export const useStore = create<StoreState>((set, get) => ({
 
   devFireArrivalNotification: () => {
     const state = get();
-    if (!state.settings.devMode || !immediateNotificationSideEffect) return;
+    if (!immediateNotificationSideEffect) return;
     try {
       immediateNotificationSideEffect(getAppState(state));
     } catch {
@@ -897,7 +884,6 @@ export const useStore = create<StoreState>((set, get) => ({
 
   devSpawnCairn: (source) => {
     const state = get();
-    if (!state.settings.devMode) return;
     const createdAt = source === 'real'
       ? Date.now() - 4 * 60 * 60 * 1_000
       : Date.now() - 3 * 24 * 60 * 60 * 1_000;
@@ -935,7 +921,6 @@ export const useStore = create<StoreState>((set, get) => ({
 
   devGrantCurio: (rarity) => {
     const state = get();
-    if (!state.settings.devMode) return;
     const id = findCurio({
       seed: rollLegSeed(),
       dayIndex: state.journey.dayIndex,
@@ -970,7 +955,7 @@ function getAppState(s: StoreState): AppState {
     pendingCurioIds: s.pendingCurioIds,
     raresFound: s.raresFound,
     settings: s.settings,
-    devOffsetMs: s.settings.devMode ? s.devOffsetMs : 0,
+    devOffsetMs: 0,
     schemaVersion: s.schemaVersion,
   };
 }
