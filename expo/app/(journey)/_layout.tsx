@@ -28,9 +28,10 @@ export default function JourneyLayout() {
         tabBarLabelPosition: 'below-icon',
         tabBarLabelStyle: {
           fontFamily: fonts.semibold,
-          fontSize: 18,
-          lineHeight: 22,
-          letterSpacing: 1.1,
+          fontSize: 13,
+          lineHeight: 18,
+          letterSpacing: 1.5,
+          textTransform: 'uppercase',
         },
         tabBarStyle: {
           height: tabBarHeight,

@@ -1,5 +1,5 @@
-import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { Animated, Easing, Platform, StyleSheet } from 'react-native';
 
 import { PropSprite } from './PropSprite';
 
@@ -10,12 +10,35 @@ export function LandmarkApproach({
   walkProgress,
   bodyColor,
   highlightColor,
+  arrived,
+  reducedMotion,
 }: {
   archetypeId: string;
   walkProgress: number;
   bodyColor: string;
   highlightColor: string;
+  arrived: boolean;
+  reducedMotion: boolean;
 }) {
+  const arrival = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    arrival.stopAnimation();
+    if (!arrived || reducedMotion) {
+      arrival.setValue(1);
+      return;
+    }
+    arrival.setValue(0);
+    const motion = Animated.timing(arrival, {
+      toValue: 1,
+      duration: 2_200,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: Platform.OS !== 'web',
+    });
+    motion.start();
+    return () => motion.stop();
+  }, [arrival, arrived, reducedMotion]);
+
   if (archetypeId !== 'willow' || walkProgress < APPROACH_START) return null;
 
   const rawProgress = Math.min(1, (walkProgress - APPROACH_START) / (1 - APPROACH_START));
@@ -25,7 +48,7 @@ export function LandmarkApproach({
   const bottom = 43 - 21 * progress;
 
   return (
-    <View
+    <Animated.View
       style={[
         styles.root,
         {
@@ -35,13 +58,24 @@ export function LandmarkApproach({
         },
       ]}
     >
-      <PropSprite
-        kind="willow"
-        height={height}
-        bodyColor={bodyColor}
-        highlightColor={highlightColor}
-      />
-    </View>
+      <Animated.View
+        style={{
+          opacity: arrival.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1] }),
+          transform: [
+            { translateX: arrival.interpolate({ inputRange: [0, 1], outputRange: [95, 0] }) },
+            { translateY: arrival.interpolate({ inputRange: [0, 1], outputRange: [-40, 0] }) },
+            { scale: arrival.interpolate({ inputRange: [0, 1], outputRange: [0.52, 1] }) },
+          ],
+        }}
+      >
+        <PropSprite
+          kind="willow"
+          height={height}
+          bodyColor={bodyColor}
+          highlightColor={highlightColor}
+        />
+      </Animated.View>
+    </Animated.View>
   );
 }
 

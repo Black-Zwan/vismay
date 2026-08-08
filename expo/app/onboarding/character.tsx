@@ -12,11 +12,13 @@ import { Text } from '@/src/ui/Text';
 import { colors, spacing } from '@/src/ui/tokens';
 import { CHARACTERS } from '@/src/content/characters';
 import { CharacterPreview } from '@/src/render/WorldView';
+import { useReducedMotion } from '@/src/ui/useReducedMotion';
 import { useStore } from '@/src/state/store';
 
 export default function CharacterScreen() {
   const [selected, setSelected] = useState<string | null>(null);
   const accent = useAccentColor();
+  const reducedMotion = useReducedMotion();
 
   return (
     <View style={styles.root}>
@@ -41,10 +43,11 @@ export default function CharacterScreen() {
                   characterId={item.id}
                   accentHex={item.accentHex}
                   fallback={<View style={styles.swatch} />}
+                  reducedMotion={reducedMotion}
                 />
               </View>
               <View style={{ flex: 1 }}>
-                <Text>{item.name}</Text>
+                <Text style={styles.choiceName}>{item.name}</Text>
                 <Text variant="caption" muted>{item.blurb}</Text>
               </View>
               {isSel ? <Text style={{ color: accent }}>✓</Text> : null}
@@ -74,7 +77,8 @@ export default function CharacterScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, padding: spacing.md, backgroundColor: colors.background },
-  sub: { marginBottom: spacing.md },
+  sub: { letterSpacing: 1, marginBottom: spacing.md, textAlign: 'center' },
+  choiceName: { letterSpacing: 2, textTransform: 'uppercase' },
   row: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -27,7 +27,7 @@ import { Panel } from '@/src/ui/Panel';
 import { Text } from '@/src/ui/Text';
 import { useClock } from '@/src/ui/useClock';
 import { useReducedMotion } from '@/src/ui/useReducedMotion';
-import { colors, radius, spacing } from '@/src/ui/tokens';
+import { colors, fonts, radius, spacing } from '@/src/ui/tokens';
 import { WorldView } from '@/src/render/WorldView';
 import {
   selectCharacterAccent,
@@ -101,6 +101,7 @@ export default function RoadScreen() {
           archetypeId={place.archetypeId}
           walkProgress={progress}
           walking={walking}
+          reducedMotion={reducedMotion}
           characterId={journey.characterId}
           accentHex={characterAccent}
           tintHex={tintHex}
@@ -127,7 +128,7 @@ export default function RoadScreen() {
         <View style={[styles.statusArea, devMode && styles.statusAreaWithDebug]}>
           <Panel style={styles.statusPanel}>
             <Text variant="caption" muted>{`Day ${journey.dayIndex}`}</Text>
-            <Text>{character?.name ?? 'Character'} {sign ? `${sign.glyph}\uFE0E` : ''}</Text>
+            <Text style={styles.statusName}>{character?.name ?? 'Character'} {sign ? `${sign.glyph}\uFE0E` : ''}</Text>
             <Text variant="caption" muted style={styles.statusLine}>
               {phase === 'arrive'
                 ? `Arrived at ${place.name}. ${journey.bankedArrivals > 1 ? `${journey.bankedArrivals} draws waiting.` : ''}`
@@ -270,20 +271,22 @@ function DrawOverlay({ accent, onDraw }: { accent: string; onDraw: () => void })
         <Text muted style={styles.prompt}>Tap the deck.</Text>
       </RiseIn>
       <RiseIn delay={150}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Draw from the deck"
-          onPress={onDraw}
-          style={({ pressed }) => [
-            styles.deck,
-            { borderColor: accent },
-            pressed && styles.pressed,
-          ]}
-        >
-          <View style={[styles.deckInset, { borderColor: accent }]}>
-            <Text variant="numeral" style={{ color: accent }}>✦</Text>
-          </View>
-        </Pressable>
+        <Floaty>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Draw from the deck"
+            onPress={onDraw}
+            style={({ pressed }) => [
+              styles.deck,
+              { borderColor: accent },
+              pressed && styles.pressed,
+            ]}
+          >
+            <View style={[styles.deckInset, { borderColor: accent }]}>
+              <Text variant="numeral" style={{ color: accent }}>✦</Text>
+            </View>
+          </Pressable>
+        </Floaty>
       </RiseIn>
     </RitualOverlay>
   );
@@ -336,6 +339,7 @@ function RevealOverlay({
           onPress={onReveal}
           style={styles.flipFrame}
         >
+          <FadeGlow accent={card.accentHex} />
           <Animated.View style={[styles.flipSide, { transform: [{ rotateY: backRotation }] }]}>
             <View style={[styles.deck, { borderColor: card.accentHex }]}>
               <View style={[styles.deckInset, { borderColor: card.accentHex }]}>
@@ -486,7 +490,7 @@ function RiseIn({
     Animated.timing(progress, {
       toValue: 1,
       delay,
-      duration: 360,
+      duration: 500,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
@@ -501,13 +505,79 @@ function RiseIn({
           transform: [{
             translateY: progress.interpolate({
               inputRange: [0, 1],
-              outputRange: [10, 0],
+              outputRange: [14, 0],
             }),
           }],
         },
       ]}
     >
       {children}
+    </Animated.View>
+  );
+}
+
+function Floaty({ children }: { children: React.ReactNode }) {
+  const reducedMotion = useReducedMotion();
+  const offset = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    offset.stopAnimation();
+    offset.setValue(0);
+    if (reducedMotion) return;
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(offset, {
+        toValue: -6,
+        duration: 1_400,
+        easing: Easing.inOut(Easing.ease),
+        useNativeDriver: true,
+      }),
+      Animated.timing(offset, {
+        toValue: 0,
+        duration: 1_400,
+        easing: Easing.inOut(Easing.ease),
+        useNativeDriver: true,
+      }),
+    ]));
+    const motion = Animated.sequence([Animated.delay(1_000), loop]);
+    motion.start();
+    return () => motion.stop();
+  }, [offset, reducedMotion]);
+
+  return <Animated.View style={{ transform: [{ translateY: offset }] }}>{children}</Animated.View>;
+}
+
+function FadeGlow({ accent }: { accent: string }) {
+  const reducedMotion = useReducedMotion();
+  const opacity = useRef(new Animated.Value(reducedMotion ? 0.45 : 0.05)).current;
+
+  useEffect(() => {
+    opacity.stopAnimation();
+    if (reducedMotion) {
+      opacity.setValue(0.45);
+      return;
+    }
+    opacity.setValue(0.05);
+    const motion = Animated.loop(Animated.sequence([
+      Animated.timing(opacity, {
+        toValue: 0.85,
+        duration: 2_000,
+        easing: Easing.inOut(Easing.ease),
+        useNativeDriver: true,
+      }),
+      Animated.timing(opacity, {
+        toValue: 0.05,
+        duration: 2_000,
+        easing: Easing.inOut(Easing.ease),
+        useNativeDriver: true,
+      }),
+    ]));
+    motion.start();
+    return () => motion.stop();
+  }, [opacity, reducedMotion]);
+
+  return (
+    <Animated.View pointerEvents="none" style={[styles.revealGlow, { opacity }]}>
+      <View style={[styles.revealGlowColor, { backgroundColor: accent }]} />
     </Animated.View>
   );
 }
@@ -548,7 +618,7 @@ const styles = StyleSheet.create({
   headerText: {
     fontSize: 16,
     lineHeight: 22,
-    letterSpacing: 3,
+    letterSpacing: 4,
     textShadowColor: 'rgba(0, 0, 0, 0.9)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 6,
@@ -571,6 +641,10 @@ const styles = StyleSheet.create({
   statusLine: {
     marginTop: spacing.xs,
   },
+  statusName: {
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+  },
   statusAction: {
     marginTop: spacing.md,
   },
@@ -585,6 +659,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(8, 6, 14, 0.72)',
   },
   prompt: {
+    fontFamily: fonts.italic,
+    letterSpacing: 1,
     marginBottom: spacing.lg,
     textAlign: 'center',
   },
@@ -601,9 +677,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(17, 14, 28, 0.78)',
   },
   lensText: {
-    fontSize: 18,
-    lineHeight: 24,
+    fontSize: 14,
+    letterSpacing: 2.5,
+    lineHeight: 22,
     textAlign: 'center',
+    textTransform: 'uppercase',
   },
   pressed: {
     opacity: 0.65,
@@ -631,6 +709,18 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backfaceVisibility: 'hidden',
   },
+  revealGlow: {
+    bottom: -42,
+    left: -42,
+    position: 'absolute',
+    right: -42,
+    top: -42,
+  },
+  revealGlowColor: {
+    borderRadius: 80,
+    flex: 1,
+    opacity: 0.16,
+  },
   cardFace: {
     flex: 1,
     padding: spacing.md,
@@ -646,7 +736,10 @@ const styles = StyleSheet.create({
     padding: spacing.sm,
   },
   cardName: {
+    fontSize: 16,
+    letterSpacing: 2,
     textAlign: 'center',
+    textTransform: 'uppercase',
   },
   compactNumeral: {
     fontSize: 24,

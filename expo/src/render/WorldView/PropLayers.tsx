@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
+import { Animated, Easing, Platform, Pressable, StyleSheet, View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { DAYPARTS } from '@/src/content/dayparts';
@@ -17,6 +17,7 @@ const HORIZON = 0.54;
 const HORIZON_PCT = (1 - HORIZON) * 100;
 const STRIP_WIDTH = 1_200;
 const PALETTE_EASE_MS = 1_400;
+const USE_NATIVE_DRIVER = Platform.OS !== 'web';
 
 const LAYERS = {
   far: {
@@ -76,6 +77,21 @@ const PROP_HEIGHT_MULTIPLIER: Record<WorldPropKind, number> = {
 
 type LayerKey = keyof typeof LAYERS;
 
+const SWAY_DURATION_MS: Partial<Record<WorldPropKind, number>> = {
+  pine: 7_000,
+  willow: 6_000,
+  palm: 7_000,
+  fern: 5_000,
+  vine: 5_000,
+};
+
+const SWAY_DEPTH: Record<LayerKey, number> = {
+  far: 0.28,
+  mid: 0.5,
+  near: 0.75,
+  foreground: 1,
+};
+
 type PropPlacement = {
   x: number;
   kind: WorldPropKind;
@@ -100,6 +116,7 @@ type PropLayersProps = {
   accentHex: string;
   tintHex?: string;
   walking: boolean;
+  reducedMotion: boolean;
   sceneProgress: number;
   sceneProps: readonly WorldPropKind[] | null;
   children: React.ReactNode;
@@ -116,6 +133,7 @@ export function PropLayers({
   accentHex,
   tintHex,
   walking,
+  reducedMotion,
   sceneProgress,
   sceneProps,
   children,
@@ -126,17 +144,25 @@ export function PropLayers({
 
   return (
     <View style={styles.root}>
-      <ParallaxBand layer="far" seed={seed} biome={biome} sceneProps={sceneProps} fill={rgbCss(palette.far)} highlight={rgbCss(palette.highlight)} accent={rgbCss(palette.accent)} walking={walking} />
-      <ParallaxBand layer="mid" seed={seed} biome={biome} sceneProps={sceneProps} fill={rgbCss(palette.far)} highlight={rgbCss(palette.highlight)} accent={rgbCss(palette.accent)} walking={walking} />
-      <ParallaxBand layer="near" seed={seed} biome={biome} sceneProps={sceneProps} fill={rgbCss(palette.near)} highlight={rgbCss(palette.highlight)} accent={rgbCss(palette.accent)} walking={walking} cairns={cairns} onCairnPress={onCairnPress} />
+      <ParallaxBand layer="far" seed={seed} biome={biome} sceneProps={sceneProps} fill={rgbCss(palette.far)} highlight={rgbCss(palette.highlight)} accent={rgbCss(palette.accent)} walking={walking && !reducedMotion} reducedMotion={reducedMotion} />
+      <ParallaxBand layer="mid" seed={seed} biome={biome} sceneProps={sceneProps} fill={rgbCss(palette.far)} highlight={rgbCss(palette.highlight)} accent={rgbCss(palette.accent)} walking={walking && !reducedMotion} reducedMotion={reducedMotion} />
+      <ParallaxBand layer="near" seed={seed} biome={biome} sceneProps={sceneProps} fill={rgbCss(palette.near)} highlight={rgbCss(palette.highlight)} accent={rgbCss(palette.accent)} walking={walking && !reducedMotion} reducedMotion={reducedMotion} cairns={cairns} onCairnPress={onCairnPress} />
       <LandmarkApproach
         archetypeId={archetypeId}
         walkProgress={sceneProgress}
         bodyColor={rgbCss(palette.near)}
         highlightColor={rgbCss(palette.highlight)}
+        arrived={!walking}
+        reducedMotion={reducedMotion}
+      />
+      <AmbientFireflies
+        accent={rgbCss(palette.accent)}
+        daypart={daypart}
+        reducedMotion={reducedMotion}
+        seed={seed}
       />
       {children}
-      <ParallaxBand layer="foreground" seed={seed} biome={biome} sceneProps={sceneProps} fill={rgbCss(palette.foreground)} highlight={rgbCss(palette.highlight)} accent={rgbCss(palette.accent)} walking={walking} />
+      <ParallaxBand layer="foreground" seed={seed} biome={biome} sceneProps={sceneProps} fill={rgbCss(palette.foreground)} highlight={rgbCss(palette.highlight)} accent={rgbCss(palette.accent)} walking={walking && !reducedMotion} reducedMotion={reducedMotion} />
     </View>
   );
 }
@@ -168,6 +194,7 @@ function ParallaxBand({
   highlight,
   accent,
   walking,
+  reducedMotion,
   cairns = [],
   onCairnPress,
 }: {
@@ -179,6 +206,7 @@ function ParallaxBand({
   highlight: string;
   accent: string;
   walking: boolean;
+  reducedMotion: boolean;
   cairns?: readonly { id: string; position: number }[];
   onCairnPress?: (id: string) => void;
 }) {
@@ -209,7 +237,17 @@ function ParallaxBand({
               { left: prop.x + offset, bottom: `${prop.bottom}%` },
             ]}
           >
-            <PropArt kind={prop.kind} height={prop.height} fill={fill} highlight={highlight} accent={accent} sprite={layer === 'near'} />
+            <SwayingProp
+              kind={prop.kind}
+              height={prop.height}
+              layer={layer}
+              phase={index}
+              reducedMotion={reducedMotion}
+            >
+              <FlickeringProp kind={prop.kind} phase={index} reducedMotion={reducedMotion}>
+                <PropArt kind={prop.kind} height={prop.height} fill={fill} highlight={highlight} accent={accent} sprite={layer === 'near'} />
+              </FlickeringProp>
+            </SwayingProp>
           </View>
         )),
       )}
@@ -233,6 +271,239 @@ function ParallaxBand({
           </Pressable>
         )),
       ) : null}
+    </Animated.View>
+  );
+}
+
+function FlickeringProp({
+  children,
+  kind,
+  phase,
+  reducedMotion,
+}: {
+  children: React.ReactNode;
+  kind: WorldPropKind;
+  phase: number;
+  reducedMotion: boolean;
+}) {
+  const opacity = useRef(new Animated.Value(0.55)).current;
+  const scale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    opacity.stopAnimation();
+    scale.stopAnimation();
+    opacity.setValue(reducedMotion ? 0.78 : 0.55);
+    scale.setValue(1);
+    if (kind !== 'lantern' || reducedMotion) return;
+
+    const duration = [1_100, 1_600, 2_000, 2_600][phase % 4];
+    const keyframes = [
+      { opacity: 1, scale: 1.12, share: 0.4 },
+      { opacity: 0.7, scale: 1.04, share: 0.22 },
+      { opacity: 0.95, scale: 1.09, share: 0.18 },
+      { opacity: 0.55, scale: 1, share: 0.2 },
+    ];
+    const loop = Animated.loop(Animated.sequence(keyframes.map((frame) =>
+      Animated.parallel([
+        Animated.timing(opacity, {
+          toValue: frame.opacity,
+          duration: duration * frame.share,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: USE_NATIVE_DRIVER,
+        }),
+        Animated.timing(scale, {
+          toValue: frame.scale,
+          duration: duration * frame.share,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: USE_NATIVE_DRIVER,
+        }),
+      ]),
+    )));
+    const motion = Animated.sequence([Animated.delay(phase === 0 ? 300 : 0), loop]);
+    motion.start();
+    return () => motion.stop();
+  }, [kind, opacity, phase, reducedMotion, scale]);
+
+  if (kind !== 'lantern') return <>{children}</>;
+  return <Animated.View style={{ opacity, transform: [{ scale }] }}>{children}</Animated.View>;
+}
+
+function AmbientFireflies({
+  accent,
+  daypart,
+  reducedMotion,
+  seed,
+}: {
+  accent: string;
+  daypart: Daypart;
+  reducedMotion: boolean;
+  seed: number;
+}) {
+  if (DAYPARTS[daypart].stars <= 0.2) return null;
+
+  return (
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      {Array.from({ length: 7 }, (_, index) => (
+        <Firefly
+          key={index}
+          accent={accent}
+          delay={unitFromSeed(seed, 600 + index) * 5_000}
+          driftDuration={6_000 + unitFromSeed(seed, 700 + index) * 5_000}
+          glowDuration={(2 + index % 3) * 1_000}
+          left={8 + unitFromSeed(seed, 800 + index) * 84}
+          bottom={20 + unitFromSeed(seed, 900 + index) * 26}
+          reducedMotion={reducedMotion}
+        />
+      ))}
+    </View>
+  );
+}
+
+function Firefly({
+  accent,
+  bottom,
+  delay,
+  driftDuration,
+  glowDuration,
+  left,
+  reducedMotion,
+}: {
+  accent: string;
+  bottom: number;
+  delay: number;
+  driftDuration: number;
+  glowDuration: number;
+  left: number;
+  reducedMotion: boolean;
+}) {
+  const drift = useRef(new Animated.Value(0)).current;
+  const glow = useRef(new Animated.Value(0.05)).current;
+
+  useEffect(() => {
+    drift.stopAnimation();
+    glow.stopAnimation();
+    drift.setValue(0);
+    glow.setValue(reducedMotion ? 0.45 : 0.05);
+    if (reducedMotion) return;
+
+    const driftLoop = Animated.loop(Animated.timing(drift, {
+      toValue: 1,
+      duration: driftDuration,
+      easing: Easing.inOut(Easing.ease),
+      useNativeDriver: USE_NATIVE_DRIVER,
+    }));
+    const glowLoop = Animated.loop(Animated.sequence([
+      Animated.timing(glow, {
+        toValue: 0.85,
+        duration: glowDuration / 2,
+        easing: Easing.inOut(Easing.ease),
+        useNativeDriver: USE_NATIVE_DRIVER,
+      }),
+      Animated.timing(glow, {
+        toValue: 0.05,
+        duration: glowDuration / 2,
+        easing: Easing.inOut(Easing.ease),
+        useNativeDriver: USE_NATIVE_DRIVER,
+      }),
+    ]));
+    const motion = Animated.sequence([
+      Animated.delay(delay),
+      Animated.parallel([driftLoop, glowLoop]),
+    ]);
+    motion.start();
+    return () => motion.stop();
+  }, [delay, drift, driftDuration, glow, glowDuration, reducedMotion]);
+
+  const translateX = drift.interpolate({
+    inputRange: [0, 0.25, 0.5, 0.75, 1],
+    outputRange: [0, 7, -5, 6, 0],
+  });
+  const translateY = drift.interpolate({
+    inputRange: [0, 0.25, 0.5, 0.75, 1],
+    outputRange: [0, -11, -19, -8, 0],
+  });
+
+  return (
+    <Animated.View style={{ position: 'absolute', left: `${left}%`, bottom: `${bottom}%`, transform: [{ translateX }, { translateY }] }}>
+      <Animated.View style={[styles.fireflyGlow, { backgroundColor: accent, opacity: glow }]} />
+      <Animated.View style={[styles.firefly, { backgroundColor: accent, opacity: glow }]} />
+    </Animated.View>
+  );
+}
+
+function SwayingProp({
+  children,
+  height,
+  kind,
+  layer,
+  phase,
+  reducedMotion,
+}: {
+  children: React.ReactNode;
+  height: number;
+  kind: WorldPropKind;
+  layer: LayerKey;
+  phase: number;
+  reducedMotion: boolean;
+}) {
+  const sway = useRef(new Animated.Value(0)).current;
+  const duration = SWAY_DURATION_MS[kind];
+  const amplitude = 1.4 * SWAY_DEPTH[layer];
+
+  useEffect(() => {
+    sway.stopAnimation();
+    sway.setValue(0);
+    if (!duration || reducedMotion) return;
+
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(sway, {
+          toValue: 1,
+          duration: duration / 4,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: USE_NATIVE_DRIVER,
+        }),
+        Animated.timing(sway, {
+          toValue: -1,
+          duration: duration / 2,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: USE_NATIVE_DRIVER,
+        }),
+        Animated.timing(sway, {
+          toValue: 0,
+          duration: duration / 4,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: USE_NATIVE_DRIVER,
+        }),
+      ]),
+    );
+    const motion = Animated.sequence([
+      Animated.delay(phase * 800),
+      loop,
+    ]);
+    motion.start();
+    return () => motion.stop();
+  }, [duration, phase, reducedMotion, sway]);
+
+  if (!duration || reducedMotion) return <>{children}</>;
+
+  return (
+    <Animated.View
+      style={{
+        height,
+        transform: [
+          { translateY: height / 2 },
+          {
+            rotate: sway.interpolate({
+              inputRange: [-1, 1],
+              outputRange: [`-${amplitude}deg`, `${amplitude}deg`],
+            }),
+          },
+          { translateY: -height / 2 },
+        ],
+      }}
+    >
+      {children}
     </Animated.View>
   );
 }
@@ -576,5 +847,18 @@ const styles = StyleSheet.create({
     height: 11,
     opacity: 0.75,
     width: 29,
+  },
+  firefly: {
+    borderRadius: 1.5,
+    height: 3,
+    width: 3,
+  },
+  fireflyGlow: {
+    borderRadius: 7,
+    height: 14,
+    left: -5.5,
+    position: 'absolute',
+    top: -5.5,
+    width: 14,
   },
 });

@@ -13,6 +13,7 @@ export interface WorldViewProps {
   archetypeId: string;
   walkProgress: number; // 0..1
   walking?: boolean;
+  reducedMotion?: boolean;
   characterId: string;
   accentHex: string;
   tintHex?: string;

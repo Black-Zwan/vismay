@@ -34,7 +34,12 @@ export function Button({ label, variant = 'primary', disabled, style, ...rest }:
       ]}
       {...rest}
     >
-      <Text variant="label" style={{ color: fg, textAlign: 'center' }}>{label}</Text>
+      <Text
+        variant="label"
+        style={{ color: fg, letterSpacing: variant === 'primary' ? 3 : 1.5, textAlign: 'center' }}
+      >
+        {label}
+      </Text>
     </Pressable>
   );
 }
