@@ -9,9 +9,11 @@ import { captureRef } from 'react-native-view-shot';
 import { ActivityIndicator, Alert, Modal, PixelRatio, Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/src/ui/Button';
-import { Panel } from '@/src/ui/Panel';
+import { CardFace } from '@/src/ui/CardFace';
 import { PassageText } from '@/src/ui/PassageText';
 import { Text } from '@/src/ui/Text';
+import { ModalCard, Ornament, ScreenFrame } from '@/src/ui/presentation';
+import { ModalEnter } from '@/src/ui/motion';
 import { colors, spacing } from '@/src/ui/tokens';
 import { useReducedMotion } from '@/src/ui/useReducedMotion';
 import { daypartFromTimestamp } from '@/src/core/time';
@@ -97,62 +99,55 @@ export default function EntryScreen() {
   return (
     <View style={styles.root}>
     <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
-      <View>
-        <Text variant="caption" muted>{`Day ${entry.dayIndex}`}</Text>
-        <Text variant="display">{placeName}</Text>
-        <Text muted style={{ marginTop: 2 }}>
-          {card?.name ?? 'Card'} · {lens?.label ?? 'Lens'}
-        </Text>
-        <Text variant="caption" muted style={{ marginTop: 2 }}>
-          {new Date(entry.createdAt).toLocaleString()}
-        </Text>
-      </View>
+      <ScreenFrame>
+        <View style={styles.heading}>
+          <Text variant="screenRubric" muted>{`Day ${entry.dayIndex}`}</Text>
+          <Text variant="display" style={[styles.placeName, { color: card?.accentHex }]}>{placeName}</Text>
+          <Text variant="caption" muted style={styles.entryMeta}>
+            {`${card?.name ?? 'Card'} · ${lens?.label ?? 'Lens'} · ${new Date(entry.createdAt).toLocaleDateString()}`}
+          </Text>
+          <Ornament style={styles.headingOrnament} />
+        </View>
 
-      <View style={styles.section}>
-        <Text variant="label" muted>Opener</Text>
         <PassageText
           text={entry.openerText}
           lensLabel={lensLabel}
           cardName={cardName}
           accentHex={card?.accentHex}
-          style={{ marginTop: 4 }}
+          variant="passageLead"
+          dropCap
+          style={styles.opener}
         />
-      </View>
 
-      <View style={styles.section}>
-        <Text variant="label" muted>Answer</Text>
         <PassageText
           text={entry.answerText}
           lensLabel={lensLabel}
           cardName={cardName}
           accentHex={card?.accentHex}
           onCardPress={() => setCardOpen(true)}
-          style={{ marginTop: 4 }}
+          variant="passage"
+          style={styles.answer}
         />
-      </View>
 
       {entry.departText ? (
-        <View style={styles.section}>
-          <Text variant="label" muted>Departure</Text>
-          <Text style={{ marginTop: 4 }}>{entry.departText}</Text>
-        </View>
+        <Text variant="reading" muted style={styles.departure}>{entry.departText}</Text>
       ) : null}
 
       {entry.watchForSignId ? (
-        <View style={styles.section}>
-          <Text variant="label" muted>On the Road Ahead</Text>
+        <View style={styles.secondarySection}>
+          <Text variant="screenRubric" muted>On the Road Ahead</Text>
           {entry.horoscopeText ? (
-            <Text variant="reading" style={{ marginTop: 4 }}>{entry.horoscopeText}</Text>
+            <Text variant="passage" style={styles.secondaryText}>{entry.horoscopeText}</Text>
           ) : null}
-          <Text style={{ marginTop: 4 }}>
+          <Text variant="placeName" style={styles.secondaryText}>
             {`${getSign(entry.watchForSignId)?.glyph ?? ''}\uFE0E ${getSign(entry.watchForSignId)?.name ?? ''}`}
           </Text>
         </View>
       ) : null}
 
       {entry.curioIds.length > 0 ? (
-        <View style={styles.section}>
-          <Text variant="label" muted>Curios gained</Text>
+        <View style={styles.secondarySection}>
+          <Text variant="screenRubric" muted>Curios gained</Text>
           <View style={{ marginTop: spacing.sm, gap: spacing.xs }}>
             {entry.curioIds.map((id) => {
               const c = getCurio(id);
@@ -162,8 +157,8 @@ export default function EntryScreen() {
         </View>
       ) : null}
 
-      <View style={styles.section}>
-        <Text variant="label" muted>Share passage</Text>
+      <View style={styles.shareSection}>
+        <Text variant="screenRubric" muted>Share passage</Text>
         <View style={styles.shareActions}>
           <Button
             label={sharing === 'story' ? 'Creating…' : 'Story'}
@@ -182,6 +177,7 @@ export default function EntryScreen() {
           {sharing ? <ActivityIndicator color={card?.accentHex ?? colors.text} /> : null}
         </View>
       </View>
+      </ScreenFrame>
 
       <Modal
         animationType={reducedMotion ? 'none' : 'fade'}
@@ -190,20 +186,23 @@ export default function EntryScreen() {
         onRequestClose={() => setCardOpen(false)}
       >
         <View style={styles.modalBackdrop}>
-          <Panel style={[styles.cardModal, { borderColor: card?.accentHex ?? colors.textMuted }]}>
-            <Text variant="numeral" muted>{card?.numeral ?? ''}</Text>
-            <Text variant="display">{cardName}</Text>
-            <Text variant="reading" muted style={{ marginTop: spacing.xs }}>{card?.epigraph ?? ''}</Text>
-            <Text variant="reading" style={{ marginTop: spacing.md }}>
-              {card?.readings[entry.lensId] ?? ''}
-            </Text>
-            <Button
-              label="Close"
-              variant="ghost"
-              onPress={() => setCardOpen(false)}
-              style={{ marginTop: spacing.md }}
-            />
-          </Panel>
+          <ModalEnter style={styles.cardModalWidth}>
+            <ModalCard style={[styles.cardModal, { borderColor: card?.accentHex ?? colors.textMuted }]}>
+              {card ? <CardFace card={card} style={styles.modalCardFace} /> : null}
+              {card?.epigraph ? (
+                <Text variant="reading" muted style={styles.cardEpigraph}>{card.epigraph}</Text>
+              ) : null}
+              <Text variant="passage" style={styles.cardReading}>
+                {card?.readings[entry.lensId] ?? ''}
+              </Text>
+              <Button
+                label="Close"
+                variant="ghost"
+                onPress={() => setCardOpen(false)}
+                style={{ marginTop: spacing.md }}
+              />
+            </ModalCard>
+          </ModalEnter>
         </View>
       </Modal>
     </ScrollView>
@@ -271,17 +270,36 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.background },
   scroll: { flex: 1, zIndex: 2, backgroundColor: colors.background },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
-  content: { paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
-  section: { marginTop: spacing.lg },
+  content: { paddingVertical: spacing.lg, paddingBottom: spacing.xl * 2 },
+  heading: { alignItems: 'center' },
+  placeName: { marginTop: 2, textAlign: 'center' },
+  entryMeta: { marginTop: spacing.xs, textAlign: 'center' },
+  headingOrnament: { marginTop: spacing.sm },
+  opener: { marginTop: spacing.lg },
+  answer: { marginTop: spacing.lg },
+  departure: { marginTop: spacing.lg, lineHeight: 27 },
+  secondarySection: {
+    marginTop: spacing.xl,
+    paddingTop: spacing.md,
+    borderTopColor: colors.line,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  secondaryText: { marginTop: spacing.sm },
+  shareSection: { marginTop: spacing.xl },
   shareActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm },
   shareButton: { minWidth: 104 },
   captureStage: { ...StyleSheet.absoluteFillObject, zIndex: 1 },
   captureCard: { position: 'absolute', left: 0, top: 0 },
   modalBackdrop: {
     flex: 1,
+    alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.lg,
     backgroundColor: colors.overlay,
   },
-  cardModal: { borderWidth: 2 },
+  cardModalWidth: { width: '100%', maxWidth: 420 },
+  cardModal: { borderWidth: 1, alignItems: 'center' },
+  modalCardFace: { marginBottom: spacing.md },
+  cardEpigraph: { textAlign: 'center' },
+  cardReading: { marginTop: spacing.md },
 });

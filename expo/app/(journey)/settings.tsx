@@ -7,9 +7,9 @@ import React from 'react';
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/src/ui/Button';
-import { Panel } from '@/src/ui/Panel';
 import { useAccentColor } from '@/src/ui/AccentColor';
 import { Text } from '@/src/ui/Text';
+import { CompactPanel, ScreenFrame } from '@/src/ui/presentation';
 import { colors, spacing } from '@/src/ui/tokens';
 import { selectCharacterAccent, useStore } from '@/src/state/store';
 import { WorldPropSpriteQa } from '@/src/render/WorldView';
@@ -43,8 +43,10 @@ export default function SettingsScreen() {
   };
 
   return (
-    <ScrollView style={styles.root} contentContainerStyle={{ padding: spacing.md, gap: spacing.md }}>
-      <Panel>
+    <ScrollView style={styles.root} contentContainerStyle={styles.content}>
+      <ScreenFrame>
+      <Text variant="screenRubric" muted style={styles.sectionLabel}>Notifications</Text>
+      <CompactPanel>
         <Toggle
           label="Arrival notifications"
           value={settings.notifyArrival}
@@ -62,11 +64,13 @@ export default function SettingsScreen() {
           value={settings.devMode}
           onToggle={(v) => updateSettings({ devMode: v })}
         />
-      </Panel>
+      </CompactPanel>
 
       {settings.devMode ? (
-        <Panel>
-          <Text variant="label" muted>Prop sprite QA · 30 / 55 / 100 / 170 px</Text>
+        <View style={styles.section}>
+          <Text variant="screenRubric" muted style={styles.sectionLabel}>Development</Text>
+          <CompactPanel>
+          <Text variant="caption" muted>Prop sprite QA · 30 / 55 / 100 / 170 px</Text>
           <View style={styles.propQa}>
             <WorldPropSpriteQa
               daypart={daypartFromTimestamp(clock)}
@@ -74,10 +78,13 @@ export default function SettingsScreen() {
               accentHex={accentHex}
             />
           </View>
-        </Panel>
+          </CompactPanel>
+        </View>
       ) : null}
 
-      <Panel>
+      <View style={styles.section}>
+      <Text variant="screenRubric" muted style={styles.sectionLabel}>Journey</Text>
+      <CompactPanel>
         <View style={styles.resetBlock}>
           <Text>Reset journey</Text>
           <Text variant="caption" muted>
@@ -85,7 +92,9 @@ export default function SettingsScreen() {
           </Text>
           <Button label="Reset journey" variant="danger" onPress={confirmReset} />
         </View>
-      </Panel>
+      </CompactPanel>
+      </View>
+      </ScreenFrame>
     </ScrollView>
   );
 }
@@ -112,6 +121,9 @@ function Divider() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.background },
+  content: { paddingVertical: spacing.lg, paddingBottom: spacing.xl * 2 },
+  section: { marginTop: spacing.xl },
+  sectionLabel: { marginBottom: spacing.sm },
   toggleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

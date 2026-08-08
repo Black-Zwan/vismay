@@ -21,7 +21,7 @@ export default function ChronicleLayout() {
         headerTitle: ({ children }) => <NavigationTitle>{children}</NavigationTitle>,
       }}
     >
-      <Stack.Screen name="index" options={{ title: 'Chronicle' }} />
+      <Stack.Screen name="index" options={{ title: 'Chronicle', headerShown: false }} />
       <Stack.Screen name="[entryId]" options={{ title: 'Entry' }} />
     </Stack>
   );

@@ -5,8 +5,9 @@
 import React from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
-import { Panel } from '@/src/ui/Panel';
 import { Text } from '@/src/ui/Text';
+import { CompactPanel, Ornament, ScreenFrame } from '@/src/ui/presentation';
+import { useAccentColor } from '@/src/ui/AccentColor';
 import { colors, spacing } from '@/src/ui/tokens';
 import { ASPECT_LIST, getAspectTitle } from '@/src/content/aspects';
 import { useStore } from '@/src/state/store';
@@ -18,36 +19,43 @@ const MIRROR_FRAMING = 'You do not choose what grows. The road weighs the questi
 
 export default function MirrorScreen() {
   const mirror = useStore((s) => s.mirror);
+  const accent = useAccentColor();
 
   return (
-    <ScrollView style={styles.root} contentContainerStyle={{ padding: spacing.md, gap: spacing.md }}>
-      <Panel>
-        <Text variant="reading" muted>{MIRROR_FRAMING}</Text>
-      </Panel>
+    <ScrollView style={styles.root} contentContainerStyle={styles.content}>
+      <ScreenFrame>
+        <View style={styles.heading}>
+          <Text variant="reading" muted style={styles.framing}>{MIRROR_FRAMING}</Text>
+          <Ornament style={styles.headingOrnament} />
+        </View>
 
-      <Panel>
-        <Text variant="label" muted>Aspects</Text>
-        <View style={{ marginTop: spacing.sm, gap: spacing.sm }}>
+        <View style={styles.section}>
+          <Text variant="screenRubric" muted>Aspects</Text>
+          <View style={styles.aspectList}>
           {ASPECT_LIST.map((a) => {
             const score = mirror.aspects[a.id];
             const title = getAspectTitle(a.id, score);
             return (
               <View key={a.id} style={styles.aspectRow}>
                 <View style={styles.row}>
-                  <Text>{a.name}</Text>
-                  <Text muted>{score}</Text>
+                  <View style={styles.aspectNameRow}>
+                    <View style={[styles.aspectMark, { backgroundColor: accent }]} />
+                    <Text variant="placeName" style={styles.aspectName}>{a.name}</Text>
+                  </View>
+                  <Text variant="screenRubric" muted>{score}</Text>
                 </View>
                 {title ? <Text variant="caption" muted>{title}</Text> : null}
               </View>
             );
           })}
+          </View>
         </View>
-      </Panel>
 
-      <Panel>
-        <Text variant="label" muted>The Record</Text>
+        <Ornament style={styles.sectionOrnament} />
+        <View style={styles.section}>
+        <Text variant="screenRubric" muted>The Record</Text>
         <View style={styles.recordSection}>
-          <Text variant="caption" muted>Questions carried</Text>
+          <Text variant="placeName" style={styles.subheading}>Questions carried</Text>
           {mirror.lensHistory.length === 0 ? (
             <Text muted style={styles.emptyLine}>Empty.</Text>
           ) : (
@@ -62,7 +70,7 @@ export default function MirrorScreen() {
           )}
         </View>
         <View style={styles.recordSection}>
-          <Text variant="caption" muted>Last ten pulls</Text>
+          <Text variant="placeName" style={styles.subheading}>Last ten pulls</Text>
           {mirror.recentPulls.length === 0 ? (
             <Text muted style={styles.emptyLine}>Empty.</Text>
           ) : (
@@ -76,41 +84,56 @@ export default function MirrorScreen() {
             </View>
           )}
         </View>
-      </Panel>
+        </View>
 
-      <Panel>
-        <Text variant="label" muted>The Satchel</Text>
+        <Ornament style={styles.sectionOrnament} />
+        <View style={styles.section}>
+        <Text variant="screenRubric" muted>The Satchel</Text>
         {mirror.satchel.length === 0 ? (
-          <Text muted style={styles.emptyLine}>Empty.</Text>
+          <CompactPanel style={styles.emptySatchel}>
+            <Text variant="reading" muted style={styles.emptySatchelText}>Empty.</Text>
+          </CompactPanel>
         ) : (
-          <View style={{ marginTop: spacing.sm, gap: spacing.xs }}>
+          <View style={styles.satchelGrid}>
             {mirror.satchel.map((id) => {
               const c = getCurio(id);
               return (
-                <View key={id}>
-                  <Text>{c?.name ?? id}</Text>
+                <CompactPanel key={id} style={styles.curioCard}>
+                  <Text variant="placeName" style={styles.curioName}>{c?.name ?? id}</Text>
                   {c ? <Text variant="caption" muted>{c.description}</Text> : null}
-                </View>
+                </CompactPanel>
               );
             })}
           </View>
         )}
-      </Panel>
+        </View>
+      </ScreenFrame>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.background },
+  content: { paddingVertical: spacing.lg, paddingBottom: spacing.xl * 2 },
+  heading: { alignItems: 'center' },
+  framing: { marginTop: spacing.sm, maxWidth: 420, textAlign: 'center' },
+  headingOrnament: { marginTop: spacing.sm },
+  section: { marginTop: spacing.lg },
+  sectionOrnament: { marginTop: spacing.xl },
   row: { flexDirection: 'row', justifyContent: 'space-between' },
+  aspectList: { marginTop: spacing.md, gap: spacing.sm },
   aspectRow: {
-    paddingBottom: spacing.xs,
+    paddingBottom: spacing.sm,
     borderBottomColor: colors.line,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
+  aspectNameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  aspectMark: { width: 4, height: 4, borderRadius: 2 },
+  aspectName: { fontSize: 13, lineHeight: 19 },
   recordSection: {
     marginTop: spacing.md,
   },
+  subheading: { fontSize: 13, lineHeight: 19 },
   historyList: {
     marginTop: spacing.xs,
     gap: spacing.xs,
@@ -123,4 +146,9 @@ const styles = StyleSheet.create({
   emptyLine: {
     marginTop: spacing.xs,
   },
+  emptySatchel: { marginTop: spacing.md, minHeight: 92, alignItems: 'center', justifyContent: 'center' },
+  emptySatchelText: { textAlign: 'center' },
+  satchelGrid: { marginTop: spacing.md, gap: spacing.sm },
+  curioCard: { gap: spacing.xs },
+  curioName: { fontSize: 13, lineHeight: 19 },
 });
