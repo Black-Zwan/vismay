@@ -10,10 +10,11 @@ import { propsFromSeed, unitFromSeed } from '@/src/world/generator';
 import type { BiomeId, WorldPropKind } from '@/src/world/types';
 
 import { ROAD_SCROLL_PX_PER_SECOND } from './motion';
+import { WORLD_COMPOSITION } from './composition';
 import { LandmarkApproach } from './LandmarkApproach';
 import { isPropSpriteKind, PropSprite, PropSpriteQa } from './PropSprite';
 
-const HORIZON = 0.54;
+const HORIZON = WORLD_COMPOSITION.horizonFromTop;
 const HORIZON_PCT = (1 - HORIZON) * 100;
 const STRIP_WIDTH = 1_200;
 const PALETTE_EASE_MS = 1_400;
@@ -41,7 +42,7 @@ const LAYERS = {
     speed: 0.85,
     count: 10,
     size: [82, 120],
-    bottom: [20.5, 26],
+    bottom: WORLD_COMPOSITION.nearPropBottomPct,
     opacity: 1,
   },
   foreground: {
@@ -919,7 +920,7 @@ const styles = StyleSheet.create({
   },
   cairn: {
     alignItems: 'center',
-    bottom: '30%',
+    bottom: `${WORLD_COMPOSITION.characterBottomPct}%`,
     height: 54,
     justifyContent: 'flex-end',
     paddingBottom: 4,

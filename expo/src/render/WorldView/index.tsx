@@ -7,6 +7,7 @@ import {
   type WorldRenderer,
 } from './renderer';
 import { CharacterSprite } from './CharacterSprite';
+import { WORLD_COMPOSITION } from './composition';
 import { PropLayers } from './PropLayers';
 import { sceneIdForRare, sceneProps } from './scenes';
 import type { WorldViewProps } from './types';
@@ -118,7 +119,7 @@ const styles = StyleSheet.create({
   character: {
     position: 'absolute',
     left: '22%',
-    bottom: '25%',
+    bottom: `${WORLD_COMPOSITION.characterBottomPct}%`,
   },
 });
 
