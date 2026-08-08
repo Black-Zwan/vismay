@@ -4,6 +4,7 @@
  */
 
 import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
@@ -12,8 +13,6 @@ import {
   ScrollView,
   StyleSheet,
   View,
-  type StyleProp,
-  type ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -25,6 +24,13 @@ import { getCurio } from '@/src/content/curios';
 import { Button } from '@/src/ui/Button';
 import { Panel } from '@/src/ui/Panel';
 import { Text } from '@/src/ui/Text';
+import { FadeGlow, Floaty, RiseIn } from '@/src/ui/motion';
+import {
+  CompactPanel,
+  ContextAction,
+  RitualOverlay,
+  WorldVignette,
+} from '@/src/ui/presentation';
 import { useClock } from '@/src/ui/useClock';
 import { useReducedMotion } from '@/src/ui/useReducedMotion';
 import { colors, fonts, radius, spacing } from '@/src/ui/tokens';
@@ -61,6 +67,7 @@ export default function RoadScreen() {
   const beginDeparture = useStore((state) => state.beginDeparture);
   const closePull = useStore((state) => state.closePull);
   const roadCairns = useStore((state) => state.roadCairns);
+  const chronicleCount = useStore((state) => state.chronicle.length);
   const curioNoticeId = useStore((state) => state.curioNoticeId);
   const dismissCurioNotice = useStore((state) => state.dismissCurioNotice);
   const [selectedCairnId, setSelectedCairnId] = useState<string | null>(null);
@@ -113,6 +120,7 @@ export default function RoadScreen() {
           onFps={setRenderFps}
         />
       </View>
+      <WorldVignette />
 
       <LinearGradient
         colors={['rgba(8, 6, 14, 0.74)', 'rgba(8, 6, 14, 0)']}
@@ -120,21 +128,38 @@ export default function RoadScreen() {
         style={[styles.headerScrim, { height: insets.top + 72 }]}
         pointerEvents="none"
       />
-      <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
-        <Text variant="label" style={styles.headerText}>Road</Text>
+      <View style={[styles.header, { paddingTop: insets.top + spacing.xs }]}>
+        <View style={styles.headerSide}>
+          <Text variant="screenRubric" style={styles.headerRubric}>
+            {`Day ${journey.dayIndex} · ${daypart}`}
+          </Text>
+          <Text variant="placeName" style={[styles.headerPlace, { color: characterAccent }]}>
+            {walking ? 'On the road' : place.name}
+          </Text>
+        </View>
+        <View style={[styles.headerSide, styles.headerRight]}>
+          <Text variant="screenRubric" style={styles.headerRubric}>
+            {`${journey.stepsWalked.toLocaleString()} steps`}
+          </Text>
+          <ContextAction
+            accessibilityLabel={`Open Chronicle, ${chronicleCount} entries`}
+            label={`Chronicle (${chronicleCount})`}
+            onPress={() => router.push('/(journey)/chronicle')}
+          />
+        </View>
       </View>
 
       {(phase === 'traveling' || phase === 'arrive') ? (
         <View style={[styles.statusArea, devMode && styles.statusAreaWithDebug]}>
-          <Panel style={styles.statusPanel}>
-            <Text variant="caption" muted>{`Day ${journey.dayIndex}`}</Text>
-            <Text style={styles.statusName}>{character?.name ?? 'Character'} {sign ? `${sign.glyph}\uFE0E` : ''}</Text>
+          <CompactPanel style={styles.statusPanel}>
+            <Text variant="screenRubric" muted>
+              {phase === 'arrive' ? 'At the waymark' : `${character?.name ?? 'The wanderer'} ${sign ? `${sign.glyph}\uFE0E` : ''}`}
+            </Text>
             <Text variant="caption" muted style={styles.statusLine}>
               {phase === 'arrive'
-                ? `Arrived at ${place.name}. ${journey.bankedArrivals > 1 ? `${journey.bankedArrivals} draws waiting.` : ''}`
+                ? `The path waits.${journey.bankedArrivals > 1 ? ` ${journey.bankedArrivals} arrivals wait on the road.` : ''}`
                 : `Walking to ${place.name}.`}
             </Text>
-            <Text variant="caption" muted>{`progress ${Math.round(progress * 100)}%`}</Text>
 
             {phase === 'arrive' ? (
               <Button label="Draw a card" onPress={beginPull} style={styles.statusAction} />
@@ -143,7 +168,7 @@ export default function RoadScreen() {
                 {`Next arrival in ${formatRemaining(journey.arrivalAt - now)}`}
               </Text>
             )}
-          </Panel>
+          </CompactPanel>
         </View>
       ) : null}
 
@@ -466,122 +491,6 @@ function CardFace({
   );
 }
 
-function RitualOverlay({ children }: { children: React.ReactNode }) {
-  return <View style={styles.scrim}>{children}</View>;
-}
-
-function RiseIn({
-  children,
-  delay = 0,
-  style,
-}: {
-  children: React.ReactNode;
-  delay?: number;
-  style?: StyleProp<ViewStyle>;
-}) {
-  const reducedMotion = useReducedMotion();
-  const progress = useRef(new Animated.Value(reducedMotion ? 1 : 0)).current;
-
-  useEffect(() => {
-    if (reducedMotion) {
-      progress.setValue(1);
-      return;
-    }
-    Animated.timing(progress, {
-      toValue: 1,
-      delay,
-      duration: 500,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
-  }, [delay, progress, reducedMotion]);
-
-  return (
-    <Animated.View
-      style={[
-        style,
-        {
-          opacity: progress,
-          transform: [{
-            translateY: progress.interpolate({
-              inputRange: [0, 1],
-              outputRange: [14, 0],
-            }),
-          }],
-        },
-      ]}
-    >
-      {children}
-    </Animated.View>
-  );
-}
-
-function Floaty({ children }: { children: React.ReactNode }) {
-  const reducedMotion = useReducedMotion();
-  const offset = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    offset.stopAnimation();
-    offset.setValue(0);
-    if (reducedMotion) return;
-    const loop = Animated.loop(Animated.sequence([
-      Animated.timing(offset, {
-        toValue: -6,
-        duration: 1_400,
-        easing: Easing.inOut(Easing.ease),
-        useNativeDriver: true,
-      }),
-      Animated.timing(offset, {
-        toValue: 0,
-        duration: 1_400,
-        easing: Easing.inOut(Easing.ease),
-        useNativeDriver: true,
-      }),
-    ]));
-    const motion = Animated.sequence([Animated.delay(1_000), loop]);
-    motion.start();
-    return () => motion.stop();
-  }, [offset, reducedMotion]);
-
-  return <Animated.View style={{ transform: [{ translateY: offset }] }}>{children}</Animated.View>;
-}
-
-function FadeGlow({ accent }: { accent: string }) {
-  const reducedMotion = useReducedMotion();
-  const opacity = useRef(new Animated.Value(reducedMotion ? 0.45 : 0.05)).current;
-
-  useEffect(() => {
-    opacity.stopAnimation();
-    if (reducedMotion) {
-      opacity.setValue(0.45);
-      return;
-    }
-    opacity.setValue(0.05);
-    const motion = Animated.loop(Animated.sequence([
-      Animated.timing(opacity, {
-        toValue: 0.85,
-        duration: 2_000,
-        easing: Easing.inOut(Easing.ease),
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacity, {
-        toValue: 0.05,
-        duration: 2_000,
-        easing: Easing.inOut(Easing.ease),
-        useNativeDriver: true,
-      }),
-    ]));
-    motion.start();
-    return () => motion.stop();
-  }, [opacity, reducedMotion]);
-
-  return (
-    <Animated.View pointerEvents="none" style={[styles.revealGlow, { opacity }]}>
-      <View style={[styles.revealGlowColor, { backgroundColor: accent }]} />
-    </Animated.View>
-  );
-}
-
 function formatRemaining(ms: number): string {
   if (ms <= 0) return 'now';
   const totalMin = Math.floor(ms / 60_000);
@@ -613,12 +522,31 @@ const styles = StyleSheet.create({
     right: 0,
     left: 0,
     zIndex: 20,
-    alignItems: 'center',
+    minHeight: 72,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
   },
-  headerText: {
-    fontSize: 16,
-    lineHeight: 22,
-    letterSpacing: 4,
+  headerSide: {
+    maxWidth: '58%',
+  },
+  headerRight: {
+    maxWidth: '42%',
+    alignItems: 'flex-end',
+  },
+  headerRubric: {
+    fontSize: 10,
+    lineHeight: 15,
+    color: 'rgba(207, 198, 232, 0.72)',
+    textShadowColor: 'rgba(0, 0, 0, 0.9)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
+  },
+  headerPlace: {
+    marginTop: 1,
+    fontSize: 14,
+    lineHeight: 19,
     textShadowColor: 'rgba(0, 0, 0, 0.9)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 6,
@@ -633,6 +561,9 @@ const styles = StyleSheet.create({
     pointerEvents: 'box-none',
   },
   statusPanel: {
+    alignSelf: 'center',
+    width: '100%',
+    maxWidth: 440,
     backgroundColor: 'rgba(17, 14, 28, 0.76)',
   },
   statusAreaWithDebug: {
@@ -640,10 +571,6 @@ const styles = StyleSheet.create({
   },
   statusLine: {
     marginTop: spacing.xs,
-  },
-  statusName: {
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
   },
   statusAction: {
     marginTop: spacing.md,
@@ -708,18 +635,6 @@ const styles = StyleSheet.create({
   flipSide: {
     ...StyleSheet.absoluteFillObject,
     backfaceVisibility: 'hidden',
-  },
-  revealGlow: {
-    bottom: -42,
-    left: -42,
-    position: 'absolute',
-    right: -42,
-    top: -42,
-  },
-  revealGlowColor: {
-    borderRadius: 80,
-    flex: 1,
-    opacity: 0.16,
   },
   cardFace: {
     flex: 1,
