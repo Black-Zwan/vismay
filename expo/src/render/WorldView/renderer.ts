@@ -8,6 +8,7 @@ import { BIOMES } from '@/src/world/data';
 import type { BiomeId, SceneId } from '@/src/world/types';
 
 import { ROAD_SCROLL_PX_PER_SECOND } from './motion';
+import { WORLD_COMPOSITION } from './composition';
 import { resolveSceneFrame, type SceneFrame } from './scenes';
 
 export const BUFFER_WIDTH = 132;
@@ -228,10 +229,10 @@ const WORLD_FRAGMENT_SHADER = `
       // ---- GROUND ----
       float d = (ny - hz) / (1.0 - hz);
       float u = (vnoise(nx * 1.4 + sw * 0.0016, 8.8) - 0.5) * 0.016;
-      float rTop = 0.795 + u;
-      float rBot = 0.9 + u * 0.6;
+      float rTop = ${WORLD_COMPOSITION.pathTopFromTop} + u;
+      float rBot = ${WORLD_COMPOSITION.pathBottomFromTop} + u * 0.6;
       float edge = (bt - 0.5) * 0.012;
-      float fgTop = 0.952 + vnoise(nx * 5.0 + sw * 0.0028, 44.4) * 0.032;
+      float fgTop = ${WORLD_COMPOSITION.foregroundTopFromTop} + vnoise(nx * 5.0 + sw * 0.0028, 44.4) * 0.024;
       if (ny > fgTop) {
         col = paletteColor(${PALETTE.foreground}.0);
       } else if (ny + edge > rTop && ny + edge < rBot) {
