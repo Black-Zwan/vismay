@@ -4,11 +4,13 @@
 
 import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/src/ui/Button';
 import { useAccentColor } from '@/src/ui/AccentColor';
 import { Text } from '@/src/ui/Text';
+import { ContextAction, Ornament, ScreenFrame } from '@/src/ui/presentation';
+import { RiseIn } from '@/src/ui/motion';
 import { colors, spacing } from '@/src/ui/tokens';
 import { SIGNS } from '@/src/content/signs';
 import { useStore } from '@/src/state/store';
@@ -20,15 +22,24 @@ export default function SignScreen() {
 
   return (
     <View style={styles.root}>
-      <Text muted style={styles.sub}>Your birth sign shapes the journey.</Text>
+      <View style={styles.backRow}>
+        <ContextAction label="Back" onPress={() => router.back()} />
+      </View>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <RiseIn style={styles.heading}>
+          <Text variant="ritualTitle" style={styles.title}>Choose your birth sign</Text>
+          <Text variant="reading" muted style={styles.sub}>Your birth sign shapes the journey.</Text>
+          <Ornament style={styles.headingOrnament} />
+        </RiseIn>
 
-      <View style={styles.grid}>
+      <RiseIn delay={150} style={styles.grid}>
         {SIGNS.map((s) => {
           const isSel = selected === s.id;
           return (
             <Pressable
               key={s.id}
               accessibilityRole="button"
+              accessibilityState={{ selected: isSel }}
               onPress={() => setSelected(s.id)}
               style={({ pressed }) => [
                 styles.cell,
@@ -42,27 +53,35 @@ export default function SignScreen() {
             </Pressable>
           );
         })}
-      </View>
+      </RiseIn>
+      </ScrollView>
 
-      <Button
-        label="Begin"
-        disabled={!selected}
-        onPress={() => {
-          const state = useStore.getState();
-          const characterId = state.journey.characterId;
-          if (!selected || !characterId) return;
-          completeOnboarding(characterId, selected);
-          router.replace('/(journey)/road');
-        }}
-        style={styles.cta}
-      />
+      <ScreenFrame style={styles.ctaFrame}>
+        <Button
+          label="Begin"
+          disabled={!selected}
+          onPress={() => {
+            const state = useStore.getState();
+            const characterId = state.journey.characterId;
+            if (!selected || !characterId) return;
+            completeOnboarding(characterId, selected);
+            router.replace('/(journey)/road');
+          }}
+          style={styles.cta}
+        />
+      </ScreenFrame>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, padding: spacing.md, backgroundColor: colors.background },
-  sub: { letterSpacing: 1, marginBottom: spacing.md, textAlign: 'center' },
+  root: { flex: 1, backgroundColor: colors.background },
+  backRow: { minHeight: 54, paddingHorizontal: spacing.md, alignItems: 'flex-start' },
+  scrollContent: { paddingHorizontal: spacing.md, paddingBottom: spacing.md },
+  heading: { alignItems: 'center', paddingBottom: spacing.lg },
+  title: { textAlign: 'center' },
+  sub: { marginTop: spacing.xs, textAlign: 'center' },
+  headingOrnament: { marginTop: spacing.sm },
   signName: { fontSize: 13, letterSpacing: 1.5, textTransform: 'uppercase' },
   grid: {
     flexDirection: 'row',
@@ -75,10 +94,11 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.line,
     backgroundColor: colors.surface,
-    borderRadius: 10,
+    borderRadius: 8,
     padding: spacing.sm,
     alignItems: 'center',
     gap: 2,
   },
-  cta: { marginTop: spacing.lg },
+  ctaFrame: { paddingVertical: spacing.sm, backgroundColor: colors.background },
+  cta: { width: '100%' },
 });

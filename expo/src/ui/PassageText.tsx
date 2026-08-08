@@ -4,7 +4,7 @@ import type { TextStyle } from 'react-native';
 import { passageSegments } from '@/src/core/passage';
 import { useAccentColor } from '@/src/ui/AccentColor';
 import { Text, type TextPropsExtended } from '@/src/ui/Text';
-import { colors, fonts } from '@/src/ui/tokens';
+import { fonts } from '@/src/ui/tokens';
 
 interface PassageTextProps extends Omit<TextPropsExtended, 'children'> {
   text: string;
@@ -12,6 +12,7 @@ interface PassageTextProps extends Omit<TextPropsExtended, 'children'> {
   cardName: string;
   accentHex?: string;
   onCardPress?: () => void;
+  dropCap?: boolean;
 }
 
 export function PassageText({
@@ -20,6 +21,7 @@ export function PassageText({
   cardName,
   accentHex,
   onCardPress,
+  dropCap = false,
   ...textProps
 }: PassageTextProps) {
   const segments = passageSegments(text, lensLabel, cardName);
@@ -28,7 +30,17 @@ export function PassageText({
   return (
     <Text {...textProps}>
       {segments.map((segment, index) => {
-        if (segment.kind === 'text') return segment.text;
+        if (segment.kind === 'text') {
+          if (dropCap && index === 0 && segment.text.length > 0) {
+            return (
+              <React.Fragment key="drop-cap">
+                <Text style={dropCapStyle}>{segment.text[0]}</Text>
+                {segment.text.slice(1)}
+              </React.Fragment>
+            );
+          }
+          return segment.text;
+        }
 
         const isCard = segment.kind === 'card';
         return (
@@ -47,7 +59,13 @@ export function PassageText({
 }
 
 const chipStyle: TextStyle = {
-  backgroundColor: colors.line,
-  borderRadius: 4,
   fontFamily: fonts.semibold,
+  textDecorationLine: 'underline',
+  textDecorationStyle: 'dotted',
+};
+
+const dropCapStyle: TextStyle = {
+  fontFamily: fonts.semibold,
+  fontSize: 32,
+  lineHeight: 30,
 };

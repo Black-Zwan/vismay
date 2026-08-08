@@ -5,13 +5,10 @@
 import { Stack } from 'expo-router';
 import React from 'react';
 
-import { useAccentColor } from '@/src/ui/AccentColor';
-import { NavigationTitle } from '@/src/ui/NavigationTitle';
 import { colors } from '@/src/ui/tokens';
 import { useReducedMotion } from '@/src/ui/useReducedMotion';
 
 export default function OnboardingLayout() {
-  const accent = useAccentColor();
   const reducedMotion = useReducedMotion();
 
   return (
@@ -19,10 +16,7 @@ export default function OnboardingLayout() {
       screenOptions={{
         animation: reducedMotion ? 'none' : 'fade_from_bottom',
         contentStyle: { backgroundColor: colors.background },
-        headerBackTitle: 'Back',
-        headerStyle: { backgroundColor: colors.background },
-        headerTintColor: accent,
-        headerTitle: ({ children }) => <NavigationTitle>{children}</NavigationTitle>,
+        headerShown: false,
       }}
     >
       <Stack.Screen name="character" options={{ title: 'Character' }} />
