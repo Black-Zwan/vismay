@@ -18,7 +18,7 @@ import {
 import { ARCHETYPES, BIOME_IDS } from '../world/data';
 
 /** Current schema version. Bump when AppState shape changes. */
-export const CURRENT_SCHEMA_VERSION = 5;
+export const CURRENT_SCHEMA_VERSION = 6;
 
 function storageKey(version: number): string {
   return `vismay_state_v${version}`;
@@ -203,6 +203,20 @@ function migrateEnvelope(envelope: PersistedEnvelope): PersistedEnvelope {
         schemaVersion: 5,
       },
       schemaVersion: 5,
+    };
+  }
+  if (current.schemaVersion < 6) {
+    const legacySettings = current.state.settings as AppState['settings'] & { devMode?: boolean };
+    const { devMode: _discardedDevMode, ...settings } = legacySettings;
+    current = {
+      ...current,
+      state: {
+        ...current.state,
+        settings,
+        devOffsetMs: 0,
+        schemaVersion: 6,
+      },
+      schemaVersion: 6,
     };
   }
   current = {

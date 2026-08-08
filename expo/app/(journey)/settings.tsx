@@ -1,6 +1,4 @@
-/**
- * Settings. Notification toggles + dev panel (behind settings.devMode).
- */
+/** Settings. Player-facing preferences only; development tools are __DEV__-only. */
 
 import { router } from 'expo-router';
 import React from 'react';
@@ -11,18 +9,12 @@ import { useAccentColor } from '@/src/ui/AccentColor';
 import { Text } from '@/src/ui/Text';
 import { CompactPanel, ScreenFrame } from '@/src/ui/presentation';
 import { colors, spacing } from '@/src/ui/tokens';
-import { selectCharacterAccent, useStore } from '@/src/state/store';
-import { WorldPropSpriteQa } from '@/src/render/WorldView';
-import { daypartFromTimestamp } from '@/src/core/time';
-import { useClock } from '@/src/ui/useClock';
+import { useStore } from '@/src/state/store';
 
 export default function SettingsScreen() {
   const settings = useStore((s) => s.settings);
   const updateSettings = useStore((s) => s.updateSettings);
   const resetAll = useStore((s) => s.resetAll);
-  const biome = useStore((s) => s.journey.biome);
-  const accentHex = useStore(selectCharacterAccent);
-  const clock = useClock();
 
   const resetJourney = () => {
     void resetAll().then(() => router.replace('/onboarding/character'));
@@ -58,29 +50,7 @@ export default function SettingsScreen() {
           value={settings.notifyWeekly}
           onToggle={(v) => updateSettings({ notifyWeekly: v })}
         />
-        <Divider />
-        <Toggle
-          label="Dev mode"
-          value={settings.devMode}
-          onToggle={(v) => updateSettings({ devMode: v })}
-        />
       </CompactPanel>
-
-      {settings.devMode ? (
-        <View style={styles.section}>
-          <Text variant="screenRubric" muted style={styles.sectionLabel}>Development</Text>
-          <CompactPanel>
-          <Text variant="caption" muted>Prop sprite QA · 30 / 55 / 100 / 170 px</Text>
-          <View style={styles.propQa}>
-            <WorldPropSpriteQa
-              daypart={daypartFromTimestamp(clock)}
-              biome={biome}
-              accentHex={accentHex}
-            />
-          </View>
-          </CompactPanel>
-        </View>
-      ) : null}
 
       <View style={styles.section}>
       <Text variant="screenRubric" muted style={styles.sectionLabel}>Journey</Text>
@@ -133,5 +103,4 @@ const styles = StyleSheet.create({
   resetBlock: {
     gap: spacing.sm,
   },
-  propQa: { marginTop: spacing.sm },
 });

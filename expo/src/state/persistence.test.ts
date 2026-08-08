@@ -58,7 +58,7 @@ describe('seeded-world persistence', () => {
     memory.set('vismay_state_v2', JSON.stringify(legacyEnvelope));
 
     const restored = await loadPersistedState();
-    expect(restored?.schemaVersion).toBe(5);
+    expect(restored?.schemaVersion).toBe(6);
     expect(restored?.state.chronicle).toEqual(chronicle);
     expect(restored?.state.journey.place.seed).toBe(restored?.state.journey.seed);
     expect(restored?.state.raresFound).toEqual([]);
@@ -72,6 +72,26 @@ describe('seeded-world persistence', () => {
     memory.set('vismay_state_v4', 'four');
     await clearPersistedState();
     expect(memory.size).toBe(0);
+  });
+
+  it('removes the legacy developer setting and offset during v5 migration', async () => {
+    const legacy = makeState(9, placeFromSeed(9, { biome: 'pinelands' }));
+    const legacyEnvelope = {
+      state: {
+        ...legacy,
+        settings: { ...legacy.settings, devMode: true },
+        devOffsetMs: 6 * 60 * 60 * 1_000,
+        schemaVersion: 5,
+      },
+      clockGuard: { lastSeenTimestamp: 100, monotonicCounter: 1 },
+      schemaVersion: 5,
+    } as unknown as PersistedEnvelope;
+    memory.set('vismay_state_v5', JSON.stringify(legacyEnvelope));
+
+    const restored = await loadPersistedState();
+    expect(restored?.schemaVersion).toBe(6);
+    expect(restored?.state.settings).not.toHaveProperty('devMode');
+    expect(restored?.state.devOffsetMs).toBe(0);
   });
 
   it('migrates v3 placeholder copy without exposing it or losing the entry', async () => {
@@ -135,7 +155,6 @@ function makeState(seed: number, place: ReturnType<typeof placeFromSeed>): AppSt
     settings: {
       notifyArrival: false,
       notifyWeekly: false,
-      devMode: false,
       arrivalPermissionAsked: false,
     },
     devOffsetMs: 0,

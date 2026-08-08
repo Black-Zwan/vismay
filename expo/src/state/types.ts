@@ -67,7 +67,6 @@ export interface MirrorState {
 export interface Settings {
   notifyArrival: boolean;
   notifyWeekly: boolean;
-  devMode: boolean;
   /** True once the contextual arrival prompt has been shown. */
   arrivalPermissionAsked: boolean;
 }
