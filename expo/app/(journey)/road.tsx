@@ -25,7 +25,7 @@ import { Button } from '@/src/ui/Button';
 import { CardBack, CardFace } from '@/src/ui/CardFace';
 import { Text } from '@/src/ui/Text';
 import { Floaty, GlowPulse, ModalEnter, RiseIn, motion } from '@/src/ui/motion';
-import { CardRevealBloom, CardRevealSheen } from '@/src/ui/CardRevealBloom';
+import { CardRevealRipple, CardRevealSheen } from '@/src/ui/CardRevealRipple';
 import {
   CompactPanel,
   ContextAction,
@@ -434,7 +434,7 @@ function RevealOverlay({
           onPress={onReveal}
           style={styles.flipFrame}
         >
-          <CardRevealBloom accent={card.accentHex} />
+          <CardRevealRipple accent={card.accentHex} />
           <Animated.View
             style={[
               styles.flipSide,
