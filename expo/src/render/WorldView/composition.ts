@@ -1,18 +1,22 @@
 /**
  * Shared vertical staging for the side-on world.
  *
- * Values measured from the top use 0..1 normalized renderer coordinates.
- * Bottom percentages are React Native layout values. Keeping both here makes
- * it difficult to move the wanderer without also checking the plane they
- * stand on.
+ * The prototype reads as five descending bands: open sky, the ridge line,
+ * middle-distance ground, the road, then foreground silhouettes. Values
+ * measured from the top use 0..1 normalized renderer coordinates; bottom
+ * percentages are React Native layout values.
  */
 export const WORLD_COMPOSITION = {
+  skyTopFromTop: 0,
+  ridgeBandTopFromTop: 0.38,
   horizonFromTop: 0.54,
-  characterBottomPct: 22,
-  nearPropBottomPct: [20.5, 26] as const,
-  pathTopFromTop: 0.755,
-  pathBottomFromTop: 0.885,
-  foregroundTopFromTop: 0.91,
+  backgroundBottomFromTop: 0.72,
+  pathTopFromTop: 0.72,
+  pathBottomFromTop: 0.86,
+  foregroundTopFromTop: 0.89,
+  worldBottomFromTop: 1,
+  characterBottomPct: 20.5,
+  nearPropBottomPct: [19, 24] as const,
 } as const;
 
 export function characterBaselineFromTop(): number {
@@ -23,4 +27,10 @@ export function isCharacterGrounded(): boolean {
   const baseline = characterBaselineFromTop();
   return baseline >= WORLD_COMPOSITION.pathTopFromTop
     && baseline <= WORLD_COMPOSITION.pathBottomFromTop;
+}
+
+export function characterRoadPosition(): number {
+  const baseline = characterBaselineFromTop();
+  const roadDepth = WORLD_COMPOSITION.pathBottomFromTop - WORLD_COMPOSITION.pathTopFromTop;
+  return (baseline - WORLD_COMPOSITION.pathTopFromTop) / roadDepth;
 }

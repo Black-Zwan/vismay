@@ -1,9 +1,11 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, Platform, StyleSheet } from 'react-native';
 
+import { WORLD_COMPOSITION } from './composition';
 import { PropSprite } from './PropSprite';
 
 const APPROACH_START = 0.55;
+const HORIZON_BOTTOM_PCT = (1 - WORLD_COMPOSITION.horizonFromTop) * 100 - 3;
 
 export function LandmarkApproach({
   archetypeId,
@@ -45,7 +47,8 @@ export function LandmarkApproach({
   const progress = rawProgress * rawProgress * (3 - 2 * rawProgress);
   const height = 30 + 190 * progress;
   const left = 72 - 12 * progress;
-  const bottom = 43 - 21 * progress;
+  const bottom = HORIZON_BOTTOM_PCT
+    + (WORLD_COMPOSITION.characterBottomPct - HORIZON_BOTTOM_PCT) * progress;
 
   return (
     <Animated.View
