@@ -92,6 +92,8 @@ Three details that matter:
 
 **Banked arrivals never fire back-to-back.** After a pull completes, always play the walk animation, *then* present the next arrival. Each pull gets the complete ceremony.
 
+The ordinary departure handoff lasts about **3.1 seconds** before settling into the real-time leg. If another arrival remains banked, use a longer **4.5-second compressed approach** to the already-generated next waymark. The destination must be named during that transition. A blink-length delay is not a journey separator.
+
 > Four pulls that feel ceremonial is fine; four pulls that feel like opening packs is brand death.
 
 The current `closePull` implements this correctly. Do not simplify it.
