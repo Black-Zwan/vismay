@@ -16,7 +16,9 @@ export const WORLD_COMPOSITION = {
   foregroundTopFromTop: 0.89,
   worldBottomFromTop: 1,
   characterBottomPct: 20.5,
-  nearPropBottomPct: [19, 24] as const,
+  // The near parallax strip stands at the far edge of the road. Cairns and
+  // the wanderer use the road baseline separately.
+  nearPropBottomPct: [28, 32] as const,
 } as const;
 
 export function characterBaselineFromTop(): number {

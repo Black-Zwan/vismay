@@ -42,6 +42,8 @@ const LAYERS = {
     speed: 0.85,
     count: 10,
     size: [82, 120],
+    // Large roadside props stand beyond the far edge of the path. Interactive
+    // cairns keep their own road baseline below.
     bottom: WORLD_COMPOSITION.nearPropBottomPct,
     opacity: 1,
   },
