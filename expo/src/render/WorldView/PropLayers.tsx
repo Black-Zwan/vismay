@@ -150,7 +150,7 @@ export function PropLayers({
       <ParallaxBand layer="near" seed={seed} biome={biome} sceneProps={sceneProps} fill={rgbCss(palette.near)} highlight={rgbCss(palette.highlight)} accent={rgbCss(palette.accent)} walking={walking && !reducedMotion} reducedMotion={reducedMotion} cairns={cairns} onCairnPress={onCairnPress} />
       <LandmarkApproach
         archetypeId={archetypeId}
-        walkProgress={sceneProgress}
+        walkProgress={walkProgress}
         bodyColor={rgbCss(palette.near)}
         highlightColor={rgbCss(palette.highlight)}
         arrived={!walking}
