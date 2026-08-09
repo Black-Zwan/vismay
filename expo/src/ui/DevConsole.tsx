@@ -47,7 +47,6 @@ export function DevConsole({ bottomInset }: { bottomInset: number }) {
   const [feedback, setFeedback] = useState<string | null>(null);
   const [forcedDaypart, setForcedDaypart] = useState<Daypart | null>(DEV_DAYPART_OVERRIDE.current);
   const pan = useRef(new Animated.ValueXY()).current;
-  const dragged = useRef(false);
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -64,11 +63,9 @@ export function DevConsole({ bottomInset }: { bottomInset: number }) {
     onStartShouldSetPanResponder: () => false,
     onMoveShouldSetPanResponder: (_event, gesture) => Math.abs(gesture.dx) > 4 || Math.abs(gesture.dy) > 4,
     onPanResponderGrant: () => {
-      dragged.current = false;
       pan.extractOffset();
     },
     onPanResponderMove: (_event, gesture) => {
-      if (Math.abs(gesture.dx) > 4 || Math.abs(gesture.dy) > 4) dragged.current = true;
       pan.setValue({ x: gesture.dx, y: gesture.dy });
     },
     onPanResponderRelease: () => {
@@ -183,9 +180,7 @@ export function DevConsole({ bottomInset }: { bottomInset: number }) {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`Open developer console, ${store.renderFps} frames per second`}
-          onPress={() => {
-            if (!dragged.current) setOpen(true);
-          }}
+          onPress={() => setOpen(true)}
           style={({ pressed }) => [styles.pill, pressed && styles.pressed]}
         >
           <Text style={styles.pillText}>DEV · {store.renderFps}</Text>

@@ -8,16 +8,15 @@ import {
 } from './composition';
 
 describe('world vertical composition', () => {
-  it('keeps the wanderer, near props, and landmark on the road plane', () => {
+  it('keeps the wanderer on the road and near props beyond its far edge', () => {
     const baseline = characterBaselineFromTop();
     const nearTop = 1 - WORLD_COMPOSITION.nearPropBottomPct[1] / 100;
     const nearBottom = 1 - WORLD_COMPOSITION.nearPropBottomPct[0] / 100;
 
     expect(isCharacterGrounded()).toBe(true);
-    expect(nearTop).toBeGreaterThanOrEqual(WORLD_COMPOSITION.pathTopFromTop);
-    expect(nearBottom).toBeLessThanOrEqual(WORLD_COMPOSITION.pathBottomFromTop);
-    expect(baseline).toBeGreaterThanOrEqual(nearTop);
-    expect(baseline).toBeLessThanOrEqual(nearBottom);
+    expect(nearTop).toBeGreaterThan(WORLD_COMPOSITION.horizonFromTop);
+    expect(nearBottom).toBeLessThanOrEqual(WORLD_COMPOSITION.pathTopFromTop);
+    expect(baseline).toBeGreaterThan(nearBottom);
     expect(characterRoadPosition()).toBeGreaterThan(0.35);
     expect(characterRoadPosition()).toBeLessThan(0.7);
   });
