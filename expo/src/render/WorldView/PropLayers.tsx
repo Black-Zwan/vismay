@@ -13,6 +13,7 @@ import { ROAD_SCROLL_PX_PER_SECOND } from './motion';
 import { WORLD_COMPOSITION } from './composition';
 import { LandmarkApproach } from './LandmarkApproach';
 import { isPropSpriteKind, PropSprite, PropSpriteQa } from './PropSprite';
+import { propKindsForLayer, type PropLayer } from './propDepth';
 
 const HORIZON = WORLD_COMPOSITION.horizonFromTop;
 const HORIZON_PCT = (1 - HORIZON) * 100;
@@ -566,7 +567,9 @@ function makeLayer(
     const slot = layerIndex * 100 + index;
     const placement = propsFromSeed(seed, slot, biome);
     const random = (salt: number) => unitFromSeed(seed, slot * 11 + salt);
-    const kind = sceneProps?.[Math.floor(random(9) * sceneProps.length)] ?? placement.kind;
+    const vocabulary = sceneProps ?? BIOMES[biome].props;
+    const layerKinds = propKindsForLayer(vocabulary, layer as PropLayer);
+    const kind = layerKinds[Math.floor(random(9) * layerKinds.length)];
     const size = config.size[0] + placement.size / 1.3 * (config.size[1] - config.size[0]);
 
     return {
