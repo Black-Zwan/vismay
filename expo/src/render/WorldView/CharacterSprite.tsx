@@ -8,13 +8,13 @@ import {
   type ImageStyle,
   Platform,
   StyleSheet,
-  View,
   type ViewStyle,
 } from 'react-native';
 
 import { CHARACTER_WALK_FPS } from './motion';
+import { inferSpriteFrameCount, spriteFrameAt, SPRITE_CELL_WIDTH } from './spriteFrames';
 
-const CELL = { width: 128, height: 176 } as const;
+const CELL = { width: SPRITE_CELL_WIDTH, height: 176 } as const;
 const ANCHOR_Y = 172;
 const STAGE_SCALE = 1.65;
 const ACCENT_FADE_MS = 1_400;
@@ -25,6 +25,7 @@ type Sheet = {
   highlight: ImageSourcePropType;
   mid: ImageSourcePropType;
   shadow: ImageSourcePropType;
+  width: number;
 };
 
 const ALDRIC: Sheet = {
@@ -32,6 +33,7 @@ const ALDRIC: Sheet = {
   highlight: require('../../../assets/sprites/aldric_walk_accent_highlight.png'),
   mid: require('../../../assets/sprites/aldric_walk_accent_mid.png'),
   shadow: require('../../../assets/sprites/aldric_walk_accent_shadow.png'),
+  width: 3_072,
 };
 
 const LYRA: Sheet = {
@@ -39,6 +41,7 @@ const LYRA: Sheet = {
   highlight: require('../../../assets/sprites/lyra_walk_accent_highlight.png'),
   mid: require('../../../assets/sprites/lyra_walk_accent_mid.png'),
   shadow: require('../../../assets/sprites/lyra_walk_accent_shadow.png'),
+  width: 3_072,
 };
 
 // The app's character table is still placeholder content. Keep that persisted
@@ -83,17 +86,6 @@ function makeRamp(accentHex: string): [string, string, string] {
   return accentRamp(accentHex).map(rgbToHex) as [string, string, string];
 }
 
-function inferFrameCount(source: ImageSourcePropType): number {
-  const directWidth = typeof source === 'object' && !Array.isArray(source) && 'width' in source
-    ? source.width
-    : undefined;
-  const resolveAssetSource = (Image as typeof Image & {
-    resolveAssetSource?: (asset: ImageSourcePropType) => { width: number };
-  }).resolveAssetSource;
-  const width = directWidth ?? resolveAssetSource?.(source).width ?? CELL.width;
-  return Math.max(1, Math.round(width / CELL.width));
-}
-
 function AccentLayers({
   sheet,
   ramp,
@@ -103,7 +95,7 @@ function AccentLayers({
 }: {
   sheet: Sheet;
   ramp: [string, string, string];
-  offset: Animated.Value;
+  offset: number;
   scale: number;
   frameCount: number;
 }) {
@@ -119,9 +111,9 @@ function AccentLayers({
 
   return (
     <>
-      <Animated.Image source={sheet.highlight} resizeMode="stretch" tintColor={ramp[0]} style={imageStyle} />
-      <Animated.Image source={sheet.mid} resizeMode="stretch" tintColor={ramp[1]} style={imageStyle} />
-      <Animated.Image source={sheet.shadow} resizeMode="stretch" tintColor={ramp[2]} style={imageStyle} />
+      <Image source={sheet.highlight} resizeMode="stretch" tintColor={ramp[0]} style={imageStyle} />
+      <Image source={sheet.mid} resizeMode="stretch" tintColor={ramp[1]} style={imageStyle} />
+      <Image source={sheet.shadow} resizeMode="stretch" tintColor={ramp[2]} style={imageStyle} />
     </>
   );
 }
@@ -134,7 +126,9 @@ export function CharacterSprite({
   scale = STAGE_SCALE,
 }: CharacterSpriteProps) {
   const sheet = SHEETS_BY_CHARACTER[characterId];
-  const frameOffset = useRef(new Animated.Value(0)).current;
+  const frameCount = inferSpriteFrameCount(sheet?.width ?? CELL.width);
+  const frame = useSpriteFrame(!!sheet && walking && !reducedMotion, frameCount);
+  const frameOffset = -frame * CELL.width * scale;
   const bob = useRef(new Animated.Value(0)).current;
   const tilt = useRef(new Animated.Value(0)).current;
   const fade = useRef(new Animated.Value(1)).current;
@@ -164,22 +158,6 @@ export function CharacterSprite({
       useNativeDriver: USE_NATIVE_DRIVER,
     }).start();
   }, [accentHex, fade, reducedMotion]);
-
-  useEffect(() => {
-    if (!sheet || !walking || reducedMotion) {
-      frameOffset.setValue(0);
-      return;
-    }
-
-    const frameCount = inferFrameCount(sheet.base);
-    let frame = 0;
-    const timer = setInterval(() => {
-      frame = (frame + 1) % frameCount;
-      frameOffset.setValue(-frame * CELL.width * scale);
-    }, 1_000 / CHARACTER_WALK_FPS);
-
-    return () => clearInterval(timer);
-  }, [frameOffset, reducedMotion, scale, sheet, walking]);
 
   useEffect(() => {
     bob.stopAnimation();
@@ -236,7 +214,6 @@ export function CharacterSprite({
   if (!sheet) return null;
 
   const fromOpacity = fade.interpolate({ inputRange: [0, 1], outputRange: [1, 0] });
-  const frameCount = inferFrameCount(sheet.base);
   const rootStyle: ViewStyle = {
     width: CELL.width * scale,
     height: ANCHOR_Y * scale,
@@ -259,18 +236,7 @@ export function CharacterSprite({
         },
       ]}
     >
-      <View
-        style={[
-          styles.shadow,
-          {
-            left: 37 * scale,
-            width: 54 * scale,
-            height: 10 * scale,
-            borderRadius: 27 * scale,
-          },
-        ]}
-      />
-      <Animated.Image
+      <Image
         source={sheet.base}
         resizeMode="stretch"
         style={[
@@ -300,6 +266,37 @@ export function CharacterSprite({
       </Animated.View>
     </Animated.View>
   );
+}
+
+function useSpriteFrame(active: boolean, frameCount: number): number {
+  const [frame, setFrame] = useState(0);
+
+  useEffect(() => {
+    if (!active) {
+      setFrame(0);
+      return;
+    }
+
+    let animationFrame = 0;
+    let previousFrame = -1;
+    const startedAt = performance.now();
+    const tick = (timestamp: number) => {
+      const nextFrame = spriteFrameAt(
+        timestamp - startedAt,
+        CHARACTER_WALK_FPS,
+        frameCount,
+      );
+      if (nextFrame !== previousFrame) {
+        previousFrame = nextFrame;
+        setFrame(nextFrame);
+      }
+      animationFrame = requestAnimationFrame(tick);
+    };
+    animationFrame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(animationFrame);
+  }, [active, frameCount]);
+
+  return frame;
 }
 
 export function CharacterPreview({
@@ -332,10 +329,5 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     left: 0,
-  },
-  shadow: {
-    position: 'absolute',
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
   },
 });

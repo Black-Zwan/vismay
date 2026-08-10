@@ -46,6 +46,7 @@ export interface RenderInputs {
   accentHex: string;
   tintHex?: string;
   sceneId: SceneId;
+  walking: boolean;
 }
 
 export interface WorldRenderer {
@@ -228,7 +229,11 @@ const WORLD_FRAGMENT_SHADER = `
     } else {
       // ---- GROUND ----
       float d = (ny - hz) / (1.0 - hz);
-      float u = (vnoise(nx * 1.4 + sw * 0.0016, 8.8) - 0.5) * 0.016;
+      // One ground-space coordinate keeps the road edge, its stones and the
+      // span planks moving as one surface instead of sliding at unrelated
+      // apparent speeds.
+      float roadX = nx + sw * (0.0016 / 1.4);
+      float u = (vnoise(roadX * 1.4, 8.8) - 0.5) * 0.016;
       float rTop = ${WORLD_COMPOSITION.pathTopFromTop} + u;
       float rBot = ${WORLD_COMPOSITION.pathBottomFromTop} + u * 0.6;
       float edge = (bt - 0.5) * 0.012;
@@ -236,13 +241,13 @@ const WORLD_FRAGMENT_SHADER = `
       if (ny > fgTop) {
         col = paletteColor(${PALETTE.foreground}.0);
       } else if (ny + edge > rTop && ny + edge < rBot) {
-        float stone = vnoise(nx * 9.0 + sw * 0.0017, ny * 46.0);
+        float stone = vnoise(roadX * 9.0, ny * 46.0);
         float pi = 3.0 + (stone - 0.5) * 2.6 + ((ny - rTop) / (rBot - rTop)) * 1.4;
         if (stone > 0.62) pi += 2.4;
         pi = clamp(pi, 0.0, P_N - 1.0);
         col = ditheredRamp(${PALETTE.path}.0, P_N, pi, bt);
         if (u_road.y > 0.02) {
-          float plank = step(0.72, vnoise(nx * 42.0 + sw * 0.0025, ny * 7.0));
+          float plank = step(0.72, vnoise(roadX * 42.0, ny * 7.0));
           col = mix(paletteColor(${PALETTE.foreground}.0), paletteColor(${PALETTE.path + 3}.0), 0.38 + plank * 0.34);
         }
       } else {
@@ -439,7 +444,7 @@ export function createWorldRenderer(
 
   function draw(timestamp: number): void {
     if (disposed) return;
-    if (lastFrameAt !== null && inputs.walkProgress < 1) {
+    if (lastFrameAt !== null && inputs.walking) {
       const elapsedSeconds = Math.min(100, timestamp - lastFrameAt) / 1_000;
       scroll += elapsedSeconds * ROAD_SCROLL_PX_PER_SECOND;
     }

@@ -39,16 +39,35 @@ export function WorldView({
   const sceneId = forcedSceneId ?? realSceneId;
   const sceneProgress = forcedSceneId ? forcedApproachProgress ?? 1 : walkProgress;
   const props = sceneProps(sceneId, sceneProgress);
-  const rendererRef = useRef<WorldRenderer | null>(null);
-  const inputsRef = useRef({ daypart, seed, biome, walkProgress: sceneProgress, accentHex, tintHex, sceneId });
-  const [rendererFailed, setRendererFailed] = useState(false);
   const walking = walkingOverride ?? walkProgress < 1;
+  const rendererWalking = walking && !reducedMotion;
+  const rendererRef = useRef<WorldRenderer | null>(null);
+  const inputsRef = useRef({
+    daypart,
+    seed,
+    biome,
+    walkProgress: sceneProgress,
+    accentHex,
+    tintHex,
+    sceneId,
+    walking: rendererWalking,
+  });
+  const [rendererFailed, setRendererFailed] = useState(false);
 
-  inputsRef.current = { daypart, seed, biome, walkProgress: sceneProgress, accentHex, tintHex, sceneId };
+  inputsRef.current = {
+    daypart,
+    seed,
+    biome,
+    walkProgress: sceneProgress,
+    accentHex,
+    tintHex,
+    sceneId,
+    walking: rendererWalking,
+  };
 
   useEffect(() => {
     rendererRef.current?.update(inputsRef.current);
-  }, [accentHex, biome, daypart, sceneId, sceneProgress, seed, tintHex]);
+  }, [accentHex, biome, daypart, rendererWalking, sceneId, sceneProgress, seed, tintHex]);
 
   useEffect(() => () => rendererRef.current?.dispose(), []);
 
