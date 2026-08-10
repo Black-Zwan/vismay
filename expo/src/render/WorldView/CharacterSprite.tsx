@@ -8,7 +8,6 @@ import {
   type ImageStyle,
   Platform,
   StyleSheet,
-  View,
   type ViewStyle,
 } from 'react-native';
 
@@ -237,17 +236,6 @@ export function CharacterSprite({
         },
       ]}
     >
-      <View
-        style={[
-          styles.shadow,
-          {
-            left: 37 * scale,
-            width: 54 * scale,
-            height: 10 * scale,
-            borderRadius: 27 * scale,
-          },
-        ]}
-      />
       <Image
         source={sheet.base}
         resizeMode="stretch"
@@ -341,10 +329,5 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     left: 0,
-  },
-  shadow: {
-    position: 'absolute',
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
   },
 });

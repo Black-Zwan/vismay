@@ -181,11 +181,27 @@ export default function RoadScreen() {
             phase === 'traveling' && styles.travelStatusArea,
           ]}
         >
-          <CompactPanel style={styles.statusPanel}>
-            <Text variant="screenRubric" muted>
+          <CompactPanel
+            style={[
+              styles.statusPanel,
+              phase === 'traveling' && styles.travelStatusPanel,
+            ]}
+          >
+            <Text
+              variant="screenRubric"
+              muted
+              style={phase === 'traveling' && styles.travelStatusText}
+            >
               {phase === 'arrive' ? 'At the waymark' : `${character?.name ?? 'The wanderer'} ${sign ? `${sign.glyph}\uFE0E` : ''}`}
             </Text>
-            <Text variant="caption" muted style={styles.statusLine}>
+            <Text
+              variant="caption"
+              muted
+              style={[
+                styles.statusLine,
+                phase === 'traveling' && styles.travelStatusText,
+              ]}
+            >
               {phase === 'arrive'
                 ? `The path waits.${journey.bankedArrivals > 1 ? ` ${journey.bankedArrivals} arrivals wait on the road.` : ''}`
                 : `Walking to ${place.name}.`}
@@ -196,7 +212,14 @@ export default function RoadScreen() {
                 <Button label="Begin today's pull" onPress={beginPull} />
               </GlowPulse>
             ) : (
-              <Text variant="caption" style={[styles.statusAction, { color: characterAccent }]}>
+              <Text
+                variant="caption"
+                style={[
+                  styles.statusAction,
+                  styles.travelStatusText,
+                  { color: characterAccent },
+                ]}
+              >
                 {`You reach ${place.name} in ${formatRemaining(journey.arrivalAt - now)}`}
               </Text>
             )}
@@ -638,10 +661,21 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(17, 14, 28, 0.76)',
   },
   travelStatusArea: {
-    top: 72,
+    top: '18%',
     bottom: 'auto',
     alignItems: 'center',
     pointerEvents: 'box-none',
+  },
+  travelStatusPanel: {
+    width: '58%',
+    maxWidth: 270,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    alignItems: 'center',
+    backgroundColor: 'rgba(17, 14, 28, 0.7)',
+  },
+  travelStatusText: {
+    textAlign: 'center',
   },
   statusLine: {
     marginTop: spacing.xs,
