@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  BANKED_DEPARTURE_MS,
+  DEPARTURE_MS,
   DEV_LEG_MS,
   MAX_BANKED_ARRIVALS,
   creditArrivals,
+  departureDurationMs,
   legDurationMs,
 } from './leg';
 import type { JourneyState } from '../state/types';
@@ -94,5 +97,16 @@ describe('creditArrivals', () => {
     expect(second.newlyBanked).toBe(0);
     expect(second.journey).toEqual(first.journey);
     expectTimingInvariant(second.journey);
+  });
+});
+
+describe('departureDurationMs', () => {
+  it('uses the ordinary ceremony before a real-time leg', () => {
+    expect(departureDurationMs(1)).toBe(DEPARTURE_MS);
+  });
+
+  it('gives a queued arrival a longer journey separator', () => {
+    expect(departureDurationMs(2)).toBe(BANKED_DEPARTURE_MS);
+    expect(departureDurationMs(MAX_BANKED_ARRIVALS)).toBe(BANKED_DEPARTURE_MS);
   });
 });

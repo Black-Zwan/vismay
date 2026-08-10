@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { useStore } from './store';
 import { setStorageBackend, type StorageBackend } from './persistence';
+import { legDurationMs } from '@/src/core/leg';
 
 const memory = new Map<string, string>();
 const backend: StorageBackend = {
@@ -9,6 +10,15 @@ const backend: StorageBackend = {
   async setItem(key, value) { memory.set(key, value); },
   async removeItem(key) { memory.delete(key); },
 };
+
+function reachDeparture(): void {
+  useStore.getState().beginPull();
+  useStore.getState().chooseLens('lens_love');
+  useStore.getState().drawCard();
+  useStore.getState().revealCard();
+  useStore.getState().finishReading();
+  useStore.getState().beginDeparture();
+}
 
 beforeEach(async () => {
   memory.clear();
@@ -54,6 +64,68 @@ describe('onboarding', () => {
     expect(reset.mirror.recentPulls).toEqual([]);
     expect(Object.values(reset.mirror.aspects).every((value) => value === 0)).toBe(true);
     expect(reset.settings.arrivalPermissionAsked).toBe(false);
+  });
+});
+
+describe('pull departure', () => {
+  it('starts a real-time free leg after the first pull', () => {
+    useStore.getState().completeOnboarding('rowan', 'cancer');
+    reachDeparture();
+
+    expect(useStore.getState().phase).toBe('walk');
+    expect(useStore.getState().departurePreview).not.toBeNull();
+
+    useStore.getState().closePull();
+    const state = useStore.getState();
+    expect(state.phase).toBe('traveling');
+    expect(state.journey.bankedArrivals).toBe(0);
+    expect(state.journey.legDurationMs).toBe(legDurationMs(false, false));
+    expect(state.journey.arrivalAt).toBe(
+      state.journey.legStartedAt + state.journey.legDurationMs,
+    );
+    expect(state.departurePreview).toBeNull();
+  });
+
+  it('presents the next waymark only after a queued departure', () => {
+    useStore.getState().completeOnboarding('rowan', 'cancer');
+    useStore.getState().devBankArrival();
+    expect(useStore.getState().journey.bankedArrivals).toBe(2);
+
+    reachDeparture();
+    const destination = useStore.getState().departurePreview?.place;
+    useStore.getState().closePull();
+
+    const state = useStore.getState();
+    expect(state.phase).toBe('arrive');
+    expect(state.journey.bankedArrivals).toBe(1);
+    expect(state.journey.place).toEqual(destination);
+  });
+});
+
+describe('arrival development controls', () => {
+  it('separates completing a leg from adding to the bank', () => {
+    useStore.getState().completeOnboarding('rowan', 'cancer');
+    useStore.setState((state) => ({
+      phase: 'traveling',
+      journey: { ...state.journey, bankedArrivals: 0 },
+    }));
+
+    useStore.getState().devCompleteLeg();
+    const completed = useStore.getState();
+    expect(completed.phase).toBe('arrive');
+    expect(completed.journey.bankedArrivals).toBe(1);
+    const completedTiming = {
+      legStartedAt: completed.journey.legStartedAt,
+      arrivalAt: completed.journey.arrivalAt,
+    };
+
+    useStore.getState().devBankArrival();
+    const banked = useStore.getState();
+    expect(banked.journey.bankedArrivals).toBe(2);
+    expect({
+      legStartedAt: banked.journey.legStartedAt,
+      arrivalAt: banked.journey.arrivalAt,
+    }).toEqual(completedTiming);
   });
 });
 

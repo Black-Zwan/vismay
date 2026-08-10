@@ -10,6 +10,12 @@ import type { JourneyState } from '@/src/state/types';
 /** Dev override leg duration: 20 seconds. */
 export const DEV_LEG_MS = 20_000;
 
+/** The ordinary departure handoff before a real-time leg settles in. */
+export const DEPARTURE_MS = 3_100;
+
+/** A queued arrival needs enough road to feel like a new place, not another pack opening. */
+export const BANKED_DEPARTURE_MS = 4_500;
+
 /** Free-user leg duration: 22 hours. */
 const FREE_LEG_MS = 22 * 60 * 60 * 1000;
 
@@ -22,6 +28,15 @@ export const MAX_BANKED_ARRIVALS = 5;
 export function legDurationMs(isPlus: boolean, devFastLegs: boolean): number {
   if (devFastLegs) return DEV_LEG_MS;
   return isPlus ? PLUS_LEG_MS : FREE_LEG_MS;
+}
+
+/**
+ * Resolve the visible departure ceremony before the current arrival is
+ * consumed. More than one banked arrival means another pull is waiting after
+ * this one, so the road gets a longer separator.
+ */
+export function departureDurationMs(bankedArrivals: number): number {
+  return bankedArrivals > 1 ? BANKED_DEPARTURE_MS : DEPARTURE_MS;
 }
 
 export function computeArrivalAt(legStartedAt: number, durationMs: number): number {

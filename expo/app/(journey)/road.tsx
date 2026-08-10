@@ -41,6 +41,7 @@ import {
   hapticRevealSettled,
 } from '@/src/ui/ritualHaptics';
 import { useClock } from '@/src/ui/useClock';
+import { useDepartureProgress } from '@/src/ui/useDepartureProgress';
 import { useReducedMotion } from '@/src/ui/useReducedMotion';
 import { colors, spacing } from '@/src/ui/tokens';
 import { WorldView } from '@/src/render/WorldView';
@@ -54,8 +55,7 @@ import {
 } from '@/src/state/store';
 import { daypartFromTimestamp } from '@/src/core/time';
 import { formatTracePassage, type LegCairn } from '@/src/core/traces';
-
-const DEPARTURE_MS = 1_200;
+import { departureDurationMs } from '@/src/core/leg';
 
 export default function RoadScreen() {
   const insets = useSafeAreaInsets();
@@ -63,6 +63,7 @@ export default function RoadScreen() {
   const tick = useStore((state) => state.tick);
   const phase = useStore((state) => state.phase);
   const journey = useStore((state) => state.journey);
+  const departurePreview = useStore((state) => state.departurePreview);
   const devSceneId = useStore((state) => state.devSceneId);
   const devApproachProgress = useStore((state) => state.devApproachProgress);
   const setRenderFps = useStore((state) => state.setRenderFps);
@@ -86,6 +87,23 @@ export default function RoadScreen() {
   const daypart = daypartFromTimestamp(now);
   const progress = selectWalkProgress(journey, now);
   const renderedBiome = selectRenderedBiome(journey, now);
+  const queuedDeparture = phase === 'walk' && journey.bankedArrivals > 1;
+  const departureMs = departureDurationMs(journey.bankedArrivals);
+  const departureProgress = useDepartureProgress(queuedDeparture, departureMs);
+  const worldPlace = phase === 'walk' && departurePreview ? departurePreview.place : place;
+  const worldSeed = phase === 'walk' && departurePreview ? departurePreview.seed : journey.seed;
+  const worldProgress = phase === 'walk'
+    ? (queuedDeparture ? departureProgress : 0)
+    : phase === 'arrive'
+      ? 1
+      : progress;
+  const worldBiome = phase === 'walk' && departurePreview
+    ? queuedDeparture
+      ? departurePreview.place.biome
+      : journey.biome
+    : phase === 'arrive'
+      ? journey.biome
+      : renderedBiome;
   const card = pullDraft ? getCard(pullDraft.cardId) : undefined;
   const tintHex = phase === 'reveal' || phase === 'reading' || phase === 'done' || phase === 'walk'
     ? card?.accentHex
@@ -98,9 +116,9 @@ export default function RoadScreen() {
 
   useEffect(() => {
     if (phase !== 'walk') return;
-    const timer = setTimeout(closePull, reducedMotion ? 0 : DEPARTURE_MS);
+    const timer = setTimeout(closePull, reducedMotion ? 0 : departureMs);
     return () => clearTimeout(timer);
-  }, [closePull, phase, reducedMotion]);
+  }, [closePull, departureMs, phase, reducedMotion]);
 
   useEffect(() => {
     if (phase === 'arrive' && previousPhase.current !== 'arrive' && !reducedMotion) {
@@ -128,18 +146,18 @@ export default function RoadScreen() {
       <View style={styles.world}>
         <WorldView
           daypart={daypart}
-          seed={journey.seed}
-          biome={renderedBiome}
-          archetypeId={place.archetypeId}
-          walkProgress={progress}
+          seed={worldSeed}
+          biome={worldBiome}
+          archetypeId={worldPlace.archetypeId}
+          walkProgress={worldProgress}
           walking={walking}
           reducedMotion={reducedMotion}
           characterId={journey.characterId}
           accentHex={characterAccent}
           tintHex={tintHex}
-          cairns={roadCairns}
+          cairns={phase === 'walk' ? [] : roadCairns}
           onCairnPress={setSelectedCairnId}
-          rareId={place.rareId}
+          rareId={worldPlace.rareId}
           forcedSceneId={devSceneId}
           forcedApproachProgress={devApproachProgress}
           onFps={setRenderFps}
@@ -203,9 +221,17 @@ export default function RoadScreen() {
               ]}
             >
               {phase === 'arrive'
-                ? `The path waits.${journey.bankedArrivals > 1 ? ` ${journey.bankedArrivals} arrivals wait on the road.` : ''}`
+                ? journey.bankedArrivals > 1
+                  ? 'You walked far while away.'
+                  : 'The path waits.'
                 : `Walking to ${place.name}.`}
             </Text>
+
+            {phase === 'arrive' && journey.bankedArrivals > 1 ? (
+              <Text variant="caption" muted style={styles.bankedLine}>
+                {`${journey.bankedArrivals} arrivals wait on the road.`}
+              </Text>
+            ) : null}
 
             {phase === 'arrive' ? (
               <GlowPulse accent={characterAccent} style={styles.statusAction}>
@@ -223,6 +249,17 @@ export default function RoadScreen() {
                 {`You reach ${place.name} in ${formatRemaining(journey.arrivalAt - now)}`}
               </Text>
             )}
+          </CompactPanel>
+        </View>
+      ) : null}
+
+      {phase === 'walk' && departurePreview ? (
+        <View style={[styles.statusArea, styles.travelStatusArea]} pointerEvents="none">
+          <CompactPanel style={styles.departurePanel}>
+            <Text variant="screenRubric" muted>On the road</Text>
+            <Text variant="caption" style={styles.statusLine}>
+              {`Walking to ${departurePreview.place.name}.`}
+            </Text>
           </CompactPanel>
         </View>
       ) : null}
@@ -680,8 +717,18 @@ const styles = StyleSheet.create({
   statusLine: {
     marginTop: spacing.xs,
   },
+  bankedLine: {
+    marginTop: 2,
+  },
   statusAction: {
     marginTop: spacing.md,
+  },
+  departurePanel: {
+    alignSelf: 'center',
+    width: 'auto',
+    minWidth: 220,
+    maxWidth: 360,
+    backgroundColor: 'rgba(17, 14, 28, 0.72)',
   },
   prompt: {
     marginBottom: spacing.sm,

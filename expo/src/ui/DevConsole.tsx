@@ -111,7 +111,14 @@ export function DevConsole({ bottomInset }: { bottomInset: number }) {
     { id: 'time-6h', section: 'quick', kind: 'action', label: '+6h', run: () => store.devSetTimeOffset(store.devOffsetMs + 6 * HOUR_MS) },
     { id: 'time-1d', section: 'quick', kind: 'action', label: '+1d', run: () => store.devSetTimeOffset(store.devOffsetMs + 24 * HOUR_MS) },
     { id: 'time-reset', section: 'quick', kind: 'action', label: 'Time ±0', run: () => store.devSetTimeOffset(0) },
-    { id: 'arrival', section: 'quick', kind: 'action', label: 'Force arrival', disabledReason: store.onboarded ? undefined : 'Complete onboarding first', run: store.devForceArrival },
+    {
+      id: 'complete-leg',
+      section: 'quick',
+      kind: 'action',
+      label: 'Complete this leg',
+      disabledReason: completeLegDisabledReason(store.onboarded, store.phase),
+      run: store.devCompleteLeg,
+    },
   ];
 
   const forceDaypart = (part: Daypart | null) => {
@@ -146,12 +153,12 @@ export function DevConsole({ bottomInset }: { bottomInset: number }) {
       });
     };
     if (Platform.OS === 'web') {
-      if (globalThis.confirm('Reset Vismay?\n\nThis clears onboarding, the Chronicle, and all journey progress.')) reset();
+      if (globalThis.confirm('Wipe Vismay storage?\n\nThis clears onboarding, the Chronicle, and all journey progress.')) reset();
       return;
     }
-    Alert.alert('Reset Vismay?', 'This clears onboarding, the Chronicle, and all journey progress.', [
+    Alert.alert('Wipe Vismay storage?', 'This clears onboarding, the Chronicle, and all journey progress.', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Reset', style: 'destructive', onPress: reset },
+      { text: 'Wipe', style: 'destructive', onPress: reset },
     ]);
   };
 
@@ -272,7 +279,26 @@ export function DevConsole({ bottomInset }: { bottomInset: number }) {
                     onRun={run}
                     controls={[
                       { id: 'notify', section: 'time-leg', kind: 'action', label: 'Fire arrival notification', run: store.devFireArrivalNotification },
-                      { id: 'arrival-time', section: 'time-leg', kind: 'action', label: 'Force arrival', disabledReason: store.onboarded ? undefined : 'Complete onboarding first', run: store.devForceArrival },
+                      {
+                        id: 'complete-leg-time',
+                        section: 'time-leg',
+                        kind: 'action',
+                        label: 'Complete this leg',
+                        disabledReason: completeLegDisabledReason(store.onboarded, store.phase),
+                        run: store.devCompleteLeg,
+                      },
+                      {
+                        id: 'bank-arrival',
+                        section: 'time-leg',
+                        kind: 'action',
+                        label: 'Bank +1',
+                        disabledReason: bankArrivalDisabledReason(
+                          store.onboarded,
+                          store.phase,
+                          store.journey.bankedArrivals,
+                        ),
+                        run: store.devBankArrival,
+                      },
                     ]}
                   />
                   <StatusCard rows={[["Banked arrivals", `${store.journey.bankedArrivals} / 5`]]} />
@@ -405,8 +431,8 @@ export function DevConsole({ bottomInset }: { bottomInset: number }) {
                   />
                   <View style={styles.dangerZone}>
                     <Text variant="screenRubric" style={styles.dangerText}>Danger zone</Text>
-                    <Text variant="caption" muted>This action clears onboarding, the Chronicle, Mirror growth, and the current journey.</Text>
-                    <DevButton label="Reset all state" danger onPress={confirmReset} />
+                    <Text variant="caption" muted>This wipes Vismay’s persisted Expo Go storage, including onboarding, the Chronicle, Mirror growth, and the current journey.</Text>
+                    <DevButton label="Wipe storage & reset" danger onPress={confirmReset} />
                   </View>
                 </>
               ) : null}
@@ -620,6 +646,24 @@ function formatRemaining(ms: number): string {
   const hours = Math.floor(ms / HOUR_MS);
   const minutes = Math.floor((ms % HOUR_MS) / 60_000);
   return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+}
+
+function completeLegDisabledReason(onboarded: boolean, phase: string): string | undefined {
+  if (!onboarded) return 'Complete onboarding first';
+  if (phase === 'arrive') return 'The current leg is already complete';
+  if (phase !== 'traveling') return 'Finish the current pull first';
+  return undefined;
+}
+
+function bankArrivalDisabledReason(
+  onboarded: boolean,
+  phase: string,
+  bankedArrivals: number,
+): string | undefined {
+  if (!onboarded) return 'Complete onboarding first';
+  if (phase !== 'traveling' && phase !== 'arrive') return 'Finish the current pull first';
+  if (bankedArrivals >= 5) return 'The arrival bank is full';
+  return undefined;
 }
 
 function biomeLabel(biome: BiomeId): string {
